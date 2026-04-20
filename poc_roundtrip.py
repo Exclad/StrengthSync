@@ -49,12 +49,8 @@ def run_minimal_fit_test() -> bool:
     print("\n=== Test 2: From-scratch minimal FIT ===")
     out_path = os.path.join(OUTPUT_DIR, "minimal.fit")
 
-    try:
-        print(f"  Building: {out_path}")
-        build_minimal_strength_fit(out_path)
-    except NotImplementedError:
-        print("  SKIP: build_minimal_strength_fit not yet implemented (Plan 03)")
-        return True  # Not a failure at this stage
+    print(f"  Building: {out_path}")
+    build_minimal_strength_fit(out_path)
 
     # Re-parse with fitparse to verify structural integrity
     print("  Re-parsing with fitparse ...")
