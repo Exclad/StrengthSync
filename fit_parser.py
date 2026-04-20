@@ -1,7 +1,7 @@
 """FIT file reader module.
 
 Uses fit-tool (read path) and fitparse (verification).
-Phase 1: minimal stub — Phase 2 extends with full field extraction.
+Phase 1: minimal implementation — Phase 2 extends with full field extraction.
 """
 from fit_tool.fit_file import FitFile
 
@@ -17,6 +17,6 @@ def read_fit_file(path: str) -> FitFile:
 
     Raises:
         FileNotFoundError: If path does not exist.
-        RuntimeError: If fit-tool cannot parse the file.
+        Exception: If fit-tool cannot parse the file.
     """
-    raise NotImplementedError("Phase 2 implements full field extraction")
+    return FitFile.from_file(path)
