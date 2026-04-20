@@ -33,9 +33,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Environment setup: Python install, venv, dependencies, module stubs, test scaffold
-- [ ] 01-02-PLAN.md — Round-trip implementation: read_fit_file + write_roundtrip_fit + poc_roundtrip.py
-- [ ] 01-03-PLAN.md — From-scratch FIT + Garmin Connect manual upload gate
+- [x] 01-01-PLAN.md — Environment setup: Python install, venv, dependencies, module stubs, test scaffold (complete 2026-04-20)
+- [x] 01-02-PLAN.md — Round-trip implementation: read_fit_file + write_roundtrip_fit + poc_roundtrip.py (complete 2026-04-20)
+- [ ] 01-03-PLAN.md — From-scratch FIT + Garmin Connect manual upload gate ← NEXT
 
 ### Phase 2: Core Parsers
 **Goal**: FitParser and HevyParser correctly extract typed workout data from the sample files, with all known edge cases handled

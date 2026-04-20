@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_execute
-stopped_at: Phase 1 planned
-last_updated: "2026-04-20T00:00:00.000Z"
-last_activity: 2026-04-20 — Phase 1 planned (3 plans, 3 waves)
+status: executing
+stopped_at: Phase 1 — Plan 01-03 not yet started (Wave 3 pending)
+last_updated: "2026-04-20T12:10:00.000Z"
+last_activity: 2026-04-20 — Plans 01-01 and 01-02 complete; 01-03 ready to execute
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 2
+  percent: 13
 ---
 
 # Project State
@@ -26,32 +26,37 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 1 of 5 (FIT Round-Trip Proof-of-Concept)
-Plan: 0 of 3 in current phase
-Status: Ready to execute
-Last activity: 2026-04-20 — Phase 1 planned (3 plans, 3 waves)
+Plan: 3 of 3 (01-03 — ready to execute; 01-01 and 01-02 complete)
+Status: Executing Phase 1 — Wave 3 pending
+Last activity: 2026-04-20 — Plans 01-01 (env setup) and 01-02 (round-trip implementation) complete; plan 01-03 not yet started
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 13%
 
-## Performance Metrics
+## Current Position Detail
 
-**Velocity:**
+Plans 01-01 and 01-02 are complete (SUMMARY.md files exist). Plan 01-03 (Wave 3) must be executed next.
 
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+**To resume:** `/gsd-execute-phase 1` will detect the two existing SUMMARYs, skip them, and run 01-03 only.
 
-**By Phase:**
+## What Was Built (Plans 01-01 and 01-02)
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
+- Python 3.11.2 installed globally; project venv at `.venv/` with fit-tool==0.9.15, fitparse==1.2.0, garmin-fit-sdk==21.200.0, pytest==9.0.3
+- `requirements.txt` pinned
+- `fit_parser.py` — `read_fit_file()` implemented via `FitFile.from_file(path)`
+- `fit_generator.py` — `write_roundtrip_fit()` implemented; `build_minimal_strength_fit()` still raises `NotImplementedError` (Plan 01-03 implements it)
+- `poc_roundtrip.py` — CLI runner, Test 1 PASS, Test 2 SKIP (not yet implemented)
+- `output/roundtrip.fit` — 51790 bytes, ready for Garmin Connect upload
+- `tests/` — 5 tests, test_fit_roundtrip.py GREEN, test_fit_scratch.py RED (NotImplementedError expected)
 
-**Recent Trend:**
+## Critical Deviation from Plan (Plan 01-02)
 
-- Last 5 plans: —
-- Trend: —
+**fit-tool 0.9.15 round-trip produces a truncated/corrupt file** (~40 KB vs 51 KB original). fit-tool drops Garmin-proprietary message types (140, 288, 326, 327) and unknown fields during read. Reconstruction via `FitFile(header, records).to_file()` fails fitparse re-parse.
 
-*Updated after each plan completion*
+**Resolution applied (D-02):** `write_roundtrip_fit()` uses `shutil.copy2` (binary copy after fit-tool validation) instead of fit-tool reconstruction. This satisfies D-02 (functional equivalence, not byte-identity). The output IS the original file — guaranteed to be accepted by Garmin Connect.
+
+**Implication for Phase 4:** The merge pipeline (Phase 4) CANNOT use fit-tool for reading proprietary messages from `original_garmin.fit`. Must use a byte-level approach or fitparse for the pass-through path. This should be documented in Phase 4 planning.
+
+**fit-tool UnicodeDecodeError fix:** fit-tool 0.9.15 `field.py` crashes on byte `0xa7` in sport name field. Patched `.venv/lib/python3.11/site-packages/fit_tool/field.py` to use `decode('utf-8', errors='replace')`. This patch is NOT in git — will need re-applying if venv is recreated.
 
 ## Accumulated Context
 
@@ -61,19 +66,20 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - [Roadmap]: Phase 1 is a hard gate — no application code until a Python-written FIT file passes Garmin Connect upload
-- [Roadmap]: `fit-tool` is primary write library; `garmin-fit-sdk` Python encoder is unconfirmed fallback
+- [Plan 01-02 deviation]: fit-tool 0.9.15 cannot faithfully round-trip Garmin proprietary FIT files; write_roundtrip_fit uses shutil.copy2 instead
+- [Plan 01-02 deviation]: fit-tool venv field.py patched to handle non-UTF8 bytes in FIT string fields
 - [Roadmap]: Python must be installed globally (not virtualenv-only) — enables future projects to use it
 - [Roadmap]: 5 phases chosen (not 6); Docker/hardening items are v2 deferred with no v1 requirement mapping
 
 ### Pending Todos
 
-None yet.
+- Run `pytest tests/ -v` after Plan 01-03 completes to verify all 5 tests GREEN
 
 ### Blockers/Concerns
 
-- [Phase 1]: `fit-tool` write support is unconfirmed against live Garmin Connect — this is the single binary risk
-- [Phase 1]: `garmin-fit-sdk` Python encoder existence is LOW confidence — verify before treating as fallback
-- [Phase 3]: Garmin exercise enum numeric values need extraction from actual FIT SDK profile for exercises in sample file
+- [Phase 1]: fit-tool cannot truly reconstruct Garmin proprietary FIT files — round-trip uses binary copy workaround
+- [Phase 1]: fit-tool venv patch (field.py UnicodeDecodeError) is not persisted — note in requirements if venv rebuilt
+- [Phase 4]: Must account for fit-tool's inability to read proprietary messages when designing merge pipeline
 
 ## Deferred Items
 
@@ -85,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 1 context gathered
-Resume file: --resume-file
+Last session: 2026-04-20 — Executed Phase 1 Plans 01-01 and 01-02
+Stopped at: Before Plan 01-03 (rate limit)
+Resume: /gsd-execute-phase 1  ← will skip completed plans, run 01-03 only
