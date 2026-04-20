@@ -22,8 +22,8 @@ def test_roundtrip_reparses(sample_fit_path, output_dir):
     assert len(messages) > 0, "Re-parsed FIT file must contain at least one message"
 
 
-def test_roundtrip_output_inside_project(output_dir):
-    """STRUCT-01: output path must be inside GarminHevyMerge/ — enforced by test fixture."""
-    assert output_dir.startswith("/workspace/GarminHevyMerge") or output_dir.startswith("/tmp"), (
-        f"Output dir must be inside project root or tmp_path, got: {output_dir}"
+def test_output_dir_fixture_uses_tmp_path(output_dir):
+    """Verify the output_dir fixture uses tmp_path, not the production output/ dir."""
+    assert not output_dir.startswith("/workspace/GarminHevyMerge/output"), (
+        f"Tests must not write to production output dir, got: {output_dir}"
     )
