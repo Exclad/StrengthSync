@@ -1,6 +1,5 @@
 """FIT file writer module.
 
-Uses fit-tool FitFileBuilder for all write operations.
 fitparse is NEVER used for writing (read-only library).
 Phase 1: minimal stubs proven against Garmin Connect.
 Phase 4: full merge pipeline extends these functions.
@@ -9,16 +8,10 @@ import datetime
 import shutil
 from fit_tool.fit_file import FitFile
 from fit_tool.fit_file_builder import FitFileBuilder
-from fit_tool.profile.messages.file_id_message import FileIdMessage
-from fit_tool.profile.messages.event_message import EventMessage
-from fit_tool.profile.messages.session_message import SessionMessage
-from fit_tool.profile.messages.lap_message import LapMessage
-from fit_tool.profile.messages.activity_message import ActivityMessage
-from fit_tool.profile.messages.set_message import SetMessage
-from fit_tool.profile.profile_type import (
-    FileType, Manufacturer, Sport, SubSport,
-    Event, EventType, Activity,
-)
+from garmin_fit_sdk import Encoder, Profile as FitProfile
+
+# FIT epoch offset: seconds between Unix epoch and FIT epoch (1989-12-31 UTC)
+_FIT_EPOCH_OFFSET = 631_065_600
 
 
 def write_roundtrip_fit(in_path: str, out_path: str) -> None:
@@ -53,92 +46,92 @@ def write_roundtrip_fit(in_path: str, out_path: str) -> None:
 def build_minimal_strength_fit(out_path: str) -> None:
     """Build a minimal strength training FIT activity file from scratch.
 
-    Message sequence (per Garmin FIT activity protocol):
-      file_id -> event(start) -> SetMessage -> event(stop) -> lap -> session -> activity
+    Uses garmin-fit-sdk (official Garmin Python encoder). fit-tool FitFileBuilder
+    was attempted first but Garmin Connect rejected its output; garmin-fit-sdk is
+    the validated fallback (Plan 01-03 deviation).
 
-    Timestamps use Unix epoch milliseconds (fit-tool converts to FIT 1989 epoch internally).
-    Weight field: integer in grams (kg * 1000). Example: 60 kg -> 60_000.
+    Message sequence (per Garmin FIT activity protocol):
+      file_id -> event(start) -> set -> event(stop) -> lap -> session -> activity
+
+    garmin-fit-sdk API takes semantic values:
+      - timestamps: FIT epoch seconds (Unix seconds - 631_065_600)
+      - weight: kg (float) — SDK applies scale=16 internally
+      - total_elapsed_time: seconds — SDK applies scale=1000 internally
 
     Args:
         out_path: Path to write the output .fit file (must be inside GarminHevyMerge/).
-
-    Raises:
-        RuntimeError: If fit-tool FitFileBuilder fails.
     """
-    # fit-tool uses Unix epoch milliseconds at the Python API level.
-    # The library converts to FIT 1989 epoch internally.
-    # DO NOT pass FIT epoch seconds — would produce timestamps 20 years in the past.
-    now_ms = round(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
-    workout_duration_ms = 3600 * 1000  # 1 hour
+    now_fit = int(datetime.datetime.now(datetime.timezone.utc).timestamp() - _FIT_EPOCH_OFFSET)
+    duration_s = 3600  # 1 hour
 
-    builder = FitFileBuilder(auto_define=True, min_string_size=50)
+    mn = FitProfile['mesg_num']
+    encoder = Encoder()
 
-    # 1. file_id (required first message in every FIT activity file)
-    msg = FileIdMessage()
-    msg.type = FileType.ACTIVITY
-    msg.manufacturer = Manufacturer.DEVELOPMENT.value
-    msg.product = 0
-    msg.serial_number = 0x12345678
-    msg.time_created = now_ms
-    builder.add(msg)
+    # 1. file_id
+    encoder.on_mesg(mn['FILE_ID'], {
+        'type': 'activity',
+        'manufacturer': 'development',
+        'product': 0,
+        'serial_number': 0x12345678,
+        'time_created': now_fit,
+    })
 
     # 2. event: timer start
-    msg = EventMessage()
-    msg.event = Event.TIMER
-    msg.event_type = EventType.START
-    msg.timestamp = now_ms
-    builder.add(msg)
+    encoder.on_mesg(mn['EVENT'], {
+        'timestamp': now_fit,
+        'event': 'timer',
+        'event_type': 'start',
+    })
 
-    # 3. set message (mesg_num 225) — one strength set
-    # weight: integer grams. 60 kg -> 60_000 (DO NOT pass float per CLAUDE.md)
-    msg = SetMessage()
-    msg.timestamp = now_ms + 60_000       # 1 min into workout
-    msg.start_time = now_ms
-    msg.repetitions = 10
-    msg.weight = 60.0                     # fit-tool weight API is in kg (scale=16 applied internally)
-    msg.set_type = 0                      # 0 = active set
-    builder.add(msg)
+    # 3. set (mesg_num 225) — one strength set, 60 kg × 10 reps
+    encoder.on_mesg(225, {
+        'timestamp': now_fit + 60,
+        'start_time': now_fit,
+        'repetitions': 10,
+        'weight': 60,      # kg — SDK applies scale=16 internally
+        'set_type': 1,     # 1 = active set
+        'duration': 60,    # seconds
+    })
 
     # 4. event: timer stop
-    msg = EventMessage()
-    msg.event = Event.TIMER
-    try:
-        msg.event_type = EventType.STOP_ALL
-    except AttributeError:
-        try:
-            msg.event_type = EventType.STOP_DISABLE_ALL
-        except AttributeError:
-            msg.event_type = EventType.STOP
-    msg.timestamp = now_ms + workout_duration_ms
-    builder.add(msg)
+    encoder.on_mesg(mn['EVENT'], {
+        'timestamp': now_fit + duration_s,
+        'event': 'timer',
+        'event_type': 'stop_all',
+    })
 
-    # 5. lap (required — Garmin Connect rejects files with no lap message)
-    msg = LapMessage()
-    msg.timestamp = now_ms + workout_duration_ms
-    msg.start_time = now_ms
-    msg.total_elapsed_time = workout_duration_ms
-    msg.total_timer_time = workout_duration_ms
-    builder.add(msg)
+    # 5. lap
+    encoder.on_mesg(mn['LAP'], {
+        'timestamp': now_fit + duration_s,
+        'start_time': now_fit,
+        'event': 'lap',
+        'event_type': 'stop',
+        'total_elapsed_time': duration_s,
+        'total_timer_time': duration_s,
+    })
 
-    # 6. session (required — Garmin Connect rejects files with no session message)
-    msg = SessionMessage()
-    msg.timestamp = now_ms + workout_duration_ms
-    msg.start_time = now_ms
-    msg.sport = Sport.TRAINING
-    msg.sub_sport = SubSport.STRENGTH_TRAINING
-    msg.total_elapsed_time = workout_duration_ms
-    msg.total_timer_time = workout_duration_ms
-    builder.add(msg)
+    # 6. session
+    encoder.on_mesg(mn['SESSION'], {
+        'timestamp': now_fit + duration_s,
+        'start_time': now_fit,
+        'event': 'session',
+        'event_type': 'stop',
+        'sport': 'training',
+        'sub_sport': 'strength_training',
+        'total_elapsed_time': duration_s,
+        'total_timer_time': duration_s,
+    })
 
-    # 7. activity (required — exactly one per file per Garmin FIT spec)
-    msg = ActivityMessage()
-    msg.timestamp = now_ms + workout_duration_ms
-    msg.total_timer_time = workout_duration_ms
-    msg.num_sessions = 1
-    msg.type = Activity.MANUAL
-    msg.event = Event.ACTIVITY
-    msg.event_type = EventType.STOP
-    builder.add(msg)
+    # 7. activity
+    encoder.on_mesg(mn['ACTIVITY'], {
+        'timestamp': now_fit + duration_s,
+        'total_timer_time': duration_s,
+        'num_sessions': 1,
+        'type': 'manual',
+        'event': 'activity',
+        'event_type': 'stop',
+    })
 
-    fit_file = builder.build()
-    fit_file.to_file(out_path)
+    data = encoder.close()
+    with open(out_path, 'wb') as f:
+        f.write(data)
