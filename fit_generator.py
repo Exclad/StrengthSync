@@ -5,6 +5,7 @@ Phase 1: minimal stubs proven against Garmin Connect.
 Phase 4: full merge pipeline extends these functions.
 """
 import datetime
+import pathlib
 import shutil
 from fit_tool.fit_file import FitFile
 from fit_tool.fit_file_builder import FitFileBuilder
@@ -136,5 +137,8 @@ def build_minimal_strength_fit(out_path: str) -> None:
     })
 
     data = encoder.close()
-    with open(out_path, 'wb') as f:
-        f.write(data)
+    if not data:
+        raise RuntimeError("garmin-fit-sdk encoder.close() returned empty bytes")
+    out_path_obj = pathlib.Path(out_path)
+    out_path_obj.parent.mkdir(parents=True, exist_ok=True)
+    out_path_obj.write_bytes(data)
