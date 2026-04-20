@@ -37,7 +37,10 @@ def write_roundtrip_fit(in_path: str, out_path: str) -> None:
         FileNotFoundError: If in_path does not exist.
     """
     # Validate the file is a parseable FIT file via fit-tool
-    FitFile.from_file(in_path)
+    try:
+        FitFile.from_file(in_path)
+    except Exception as exc:
+        raise ValueError(f"fit-tool could not parse {in_path!r}: {exc}") from exc
     # Binary copy preserves all bytes (including Garmin-proprietary messages that
     # fit-tool 0.9.15 drops during field-level reconstruction)
     shutil.copy2(in_path, out_path)
