@@ -59,7 +59,13 @@ Plans:
   4. Exercise mappings confirmed by the user are stored in SQLite and are retrieved correctly in a subsequent session without re-entry
   5. Fuzzy string matching (rapidfuzz) suggests Garmin exercise enum candidates for each Hevy exercise name with a confidence score
   6. Exercises with no Garmin enum equivalent (machine-specific movements) are assigned a generic strength fallback rather than raising an error
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Foundation: models.py extensions (GarminExercise + MatchResult), database.py, garmin_exercises.csv extraction, requirements.txt, .gitignore
+- [ ] 03-02-PLAN.md — matcher.py: timezone-aware match_workouts + force_match + tests (Wave 2, parallel with 03-03)
+- [ ] 03-03-PLAN.md — mapper.py: fuzzy suggest_mapping + DB-backed confirm/retrieve + tests (Wave 2, parallel with 03-02)
+- [ ] 03-04-PLAN.md — Integration fixtures in conftest.py + full test suite GREEN gate
 
 ### Phase 4: FIT Builder + Merge Pipeline
 **Goal**: The merge pipeline assembles a valid FIT binary — all Garmin biometrics preserved verbatim, Hevy exercise data injected with correct field scaling — and the output passes CRC validation and Garmin Connect upload
@@ -95,6 +101,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. FIT Round-Trip Proof-of-Concept | 3/3 | Complete | 2026-04-20 |
 | 2. Core Parsers | 0/TBD | Not started | - |
-| 3. Workout Matching + Exercise Mapping | 0/TBD | Not started | - |
+| 3. Workout Matching + Exercise Mapping | 0/4 | Not started | - |
 | 4. FIT Builder + Merge Pipeline | 0/TBD | Not started | - |
 | 5. Web UI + Deployment | 0/TBD | Not started | - |
