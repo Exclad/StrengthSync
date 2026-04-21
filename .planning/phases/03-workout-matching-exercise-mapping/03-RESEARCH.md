@@ -598,22 +598,13 @@ Phase 3 involves SQLite (local file), user-supplied timezone strings, and exerci
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **match_workouts() return type when no match found**
-   - What we know: D-09 signature says `-> MatchResult` (not Optional)
-   - What's unclear: What does the caller receive when no Hevy workout is within 30 minutes? A plain `MatchResult` type annotation cannot express "no match".
-   - Recommendation: Planner should update signature to `-> MatchResult | None`. This is a Claude's Discretion area. Phase 5 handles the None case by offering the manual force_match() flow.
+1. **match_workouts() return type when no match found** — RESOLVED: Plans use `-> MatchResult | None`. Phase 5 handles the None case by offering the manual force_match() flow.
 
-2. **`data/exercise_mappings.db` in .gitignore**
-   - What we know: D-07 puts DB at `data/exercise_mappings.db`. D-08: only confirmed mappings stored.
-   - What's unclear: Should the DB be gitignored or tracked?
-   - Recommendation: Gitignore `data/exercise_mappings.db` (user-specific confirmed mappings). Commit `data/garmin_exercises.csv` (shared reference data). The plan should add the gitignore entry.
+2. **`data/exercise_mappings.db` in .gitignore** — RESOLVED: Plan 01 Task 3 adds `data/exercise_mappings.db` to .gitignore (user-specific). `data/garmin_exercises.csv` is committed (shared reference data).
 
-3. **pandas in requirements.txt**
-   - What we know: hevy_parser.py uses stdlib csv (not pandas). pandas is installed but unused by any implemented module.
-   - What's unclear: Does CLAUDE.md requiring pandas mean it should be in requirements.txt even if unused?
-   - Recommendation: Add pandas to requirements.txt as a declared dependency (CLAUDE.md lists it in stack). No Phase 3 code uses it, but requirements.txt should be honest about the project stack.
+3. **pandas in requirements.txt** — RESOLVED: Plan 01 Task 3 adds pandas to requirements.txt as a declared dependency (CLAUDE.md lists it in stack). No Phase 3 code uses it directly.
 
 ---
 
