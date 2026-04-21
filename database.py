@@ -17,6 +17,8 @@ def init_db(db_path: str | pathlib.Path = DB_PATH) -> None:
     Args:
         db_path: Path to the SQLite database file. Created on first connect if absent.
     """
+    db_path = pathlib.Path(db_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS confirmed_mappings (
