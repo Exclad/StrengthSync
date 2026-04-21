@@ -1,12 +1,15 @@
 """Shared pytest fixtures for Phase 1 tests."""
 import os
+import pathlib
 import pytest
 
-# Absolute path to the sample Garmin FIT file (committed to repo)
-SAMPLE_FIT = "/workspace/GarminHevyMerge/original_garmin.fit"
+_PROJECT_ROOT = pathlib.Path(__file__).parent.parent
+
+# Path to the sample Garmin FIT file (committed to repo)
+SAMPLE_FIT = str(_PROJECT_ROOT / "original_garmin.fit")
 
 # Output directory for generated FIT files
-OUTPUT_DIR = "/workspace/GarminHevyMerge/output"
+OUTPUT_DIR = str(_PROJECT_ROOT / "output")
 
 
 @pytest.fixture
@@ -24,8 +27,8 @@ def output_dir(tmp_path):
     return str(tmp_path)
 
 
-# Absolute path to the sample Hevy CSV file (committed to repo)
-SAMPLE_HEVY = "/workspace/GarminHevyMerge/original_hevy.csv"
+# Path to the sample Hevy CSV file (committed to repo)
+SAMPLE_HEVY = str(_PROJECT_ROOT / "original_hevy.csv")
 
 
 @pytest.fixture
