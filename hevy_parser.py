@@ -20,7 +20,7 @@ def _opt_float(val: str) -> float | None:
 
 def _opt_int(val: str) -> int | None:
     """Return int or None for an empty CSV cell."""
-    return int(val) if val.strip() else None
+    return int(float(val)) if val.strip() else None
 
 
 def _is_cardio(row: dict) -> bool:
