@@ -17,7 +17,7 @@
 ### Workout Matching
 
 - [ ] **MATCH-01**: User can select their IANA timezone (e.g. `Asia/Singapore`) so the app correctly converts Hevy local timestamps to UTC for matching against Garmin FIT timestamps
-- [ ] **MATCH-02**: App auto-matches Garmin and Hevy workouts by timestamp proximity (within 1-hour window) and surfaces confidence level of each match
+- [ ] **MATCH-02**: App auto-matches Garmin and Hevy workouts by timestamp proximity (within 30-minute window) and surfaces confidence level of each match
 - [ ] **MATCH-03**: User can manually select which Garmin and Hevy workouts to pair when auto-match fails or produces a wrong result
 
 ### Exercise Mapping

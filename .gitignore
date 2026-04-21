@@ -1,0 +1,7 @@
+# User-specific confirmed exercise mappings (not shared)
+data/exercise_mappings.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/

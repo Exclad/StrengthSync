@@ -9,3 +9,6 @@ packaging==26.1
 pluggy==1.6.0
 Pygments==2.20.0
 pytest==9.0.3
+rapidfuzz==3.14.5
+python-dateutil==2.9.0.post0
+pandas==3.0.2
