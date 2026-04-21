@@ -16,16 +16,16 @@
 
 ### Workout Matching
 
-- [ ] **MATCH-01**: User can select their IANA timezone (e.g. `Asia/Singapore`) so the app correctly converts Hevy local timestamps to UTC for matching against Garmin FIT timestamps
-- [ ] **MATCH-02**: App auto-matches Garmin and Hevy workouts by timestamp proximity (within 30-minute window) and surfaces confidence level of each match
-- [ ] **MATCH-03**: User can manually select which Garmin and Hevy workouts to pair when auto-match fails or produces a wrong result
+- [x] **MATCH-01**: User can select their IANA timezone (e.g. `Asia/Singapore`) so the app correctly converts Hevy local timestamps to UTC for matching against Garmin FIT timestamps
+- [x] **MATCH-02**: App auto-matches Garmin and Hevy workouts by timestamp proximity (within 30-minute window) and surfaces confidence level of each match
+- [x] **MATCH-03**: User can manually select which Garmin and Hevy workouts to pair when auto-match fails or produces a wrong result
 
 ### Exercise Mapping
 
-- [ ] **MAP-01**: App persists confirmed Hevy→Garmin exercise mappings in SQLite so they are reused across sessions without re-entry
-- [ ] **MAP-02**: App suggests Garmin exercise matches for Hevy names using fuzzy string matching (rapidfuzz), with confidence scores
-- [ ] **MAP-03**: User can review all exercise mappings before export, correct any wrong suggestions, and the app blocks export if any exercise is unmapped without explicit user acknowledgment
-- [ ] **MAP-04**: App maps unrecognized exercises (e.g. machine-specific movements) to a generic strength fallback type rather than failing
+- [x] **MAP-01**: App persists confirmed Hevy→Garmin exercise mappings in SQLite so they are reused across sessions without re-entry
+- [x] **MAP-02**: App suggests Garmin exercise matches for Hevy names using fuzzy string matching (rapidfuzz), with confidence scores
+- [x] **MAP-03**: User can review all exercise mappings before export, correct any wrong suggestions, and the app blocks export if any exercise is unmapped without explicit user acknowledgment
+- [x] **MAP-04**: App maps unrecognized exercises (e.g. machine-specific movements) to a generic strength fallback type rather than failing
 
 ### Data Merge
 
@@ -82,13 +82,13 @@
 | FIT-02 | Phase 2 | Pending |
 | HEVY-01 | Phase 2 | Pending |
 | HEVY-02 | Phase 2 | Pending |
-| MATCH-01 | Phase 3 | Pending |
-| MATCH-02 | Phase 3 | Pending |
-| MATCH-03 | Phase 3 | Pending |
-| MAP-01 | Phase 3 | Pending |
-| MAP-02 | Phase 3 | Pending |
-| MAP-03 | Phase 3 | Pending |
-| MAP-04 | Phase 3 | Pending |
+| MATCH-01 | Phase 3 | Complete |
+| MATCH-02 | Phase 3 | Complete |
+| MATCH-03 | Phase 3 | Complete |
+| MAP-01 | Phase 3 | Complete |
+| MAP-02 | Phase 3 | Complete |
+| MAP-03 | Phase 3 | Complete |
+| MAP-04 | Phase 3 | Complete |
 | FIT-03 | Phase 4 | Pending |
 | FIT-04 | Phase 4 | Pending |
 | MERGE-01 | Phase 4 | Pending |

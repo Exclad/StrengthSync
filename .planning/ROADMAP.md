@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: FIT Round-Trip Proof-of-Concept** - Validate that Python can write a FIT file Garmin Connect accepts — hard gate for all other work (complete 2026-04-20)
 - [ ] **Phase 2: Core Parsers** - Build FitParser and HevyParser producing typed dataclasses from sample files
-- [ ] **Phase 3: Workout Matching + Exercise Mapping** - Timezone-aware matcher and SQLite-backed exercise mapper with fuzzy suggestions
+- [x] **Phase 3: Workout Matching + Exercise Mapping** - Timezone-aware matcher and SQLite-backed exercise mapper with fuzzy suggestions (completed 2026-04-21)
 - [ ] **Phase 4: FIT Builder + Merge Pipeline** - Assemble the full merge: biometric pass-through, Hevy exercise injection, weight scaling, CRC validation
 - [ ] **Phase 5: Web UI + Deployment** - Flask upload/download UI, mapping review screen, timezone picker, error messages, and local run packaging
 
@@ -62,10 +62,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Foundation: models.py extensions (GarminExercise + MatchResult), database.py, garmin_exercises.csv extraction, requirements.txt, .gitignore
-- [ ] 03-02-PLAN.md — matcher.py: timezone-aware match_workouts + force_match + tests (Wave 2, parallel with 03-03)
-- [ ] 03-03-PLAN.md — mapper.py: fuzzy suggest_mapping + DB-backed confirm/retrieve + tests (Wave 2, parallel with 03-02)
-- [ ] 03-04-PLAN.md — Integration fixtures in conftest.py + full test suite GREEN gate
+- [x] 03-01-PLAN.md — Foundation: models.py extensions (GarminExercise + MatchResult), database.py, garmin_exercises.csv extraction, requirements.txt, .gitignore
+- [x] 03-02-PLAN.md — matcher.py: timezone-aware match_workouts + force_match + tests (Wave 2, parallel with 03-03)
+- [x] 03-03-PLAN.md — mapper.py: fuzzy suggest_mapping + DB-backed confirm/retrieve + tests (Wave 2, parallel with 03-02)
+- [x] 03-04-PLAN.md — Integration fixtures in conftest.py + full test suite GREEN gate
 
 ### Phase 4: FIT Builder + Merge Pipeline
 **Goal**: The merge pipeline assembles a valid FIT binary — all Garmin biometrics preserved verbatim, Hevy exercise data injected with correct field scaling — and the output passes CRC validation and Garmin Connect upload
@@ -101,6 +101,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. FIT Round-Trip Proof-of-Concept | 3/3 | Complete | 2026-04-20 |
 | 2. Core Parsers | 0/TBD | Not started | - |
-| 3. Workout Matching + Exercise Mapping | 0/4 | Not started | - |
+| 3. Workout Matching + Exercise Mapping | 4/4 | Complete    | 2026-04-21 |
 | 4. FIT Builder + Merge Pipeline | 0/TBD | Not started | - |
 | 5. Web UI + Deployment | 0/TBD | Not started | - |
