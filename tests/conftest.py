@@ -22,3 +22,14 @@ def output_dir(tmp_path):
     Uses pytest's tmp_path to avoid polluting the project output/ directory during tests.
     """
     return str(tmp_path)
+
+
+# Absolute path to the sample Hevy CSV file (committed to repo)
+SAMPLE_HEVY = "/workspace/GarminHevyMerge/original_hevy.csv"
+
+
+@pytest.fixture
+def sample_hevy_path():
+    """Return the absolute path to the sample Hevy CSV file."""
+    assert os.path.exists(SAMPLE_HEVY), f"Sample Hevy CSV not found: {SAMPLE_HEVY}"
+    return SAMPLE_HEVY
