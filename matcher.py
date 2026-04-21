@@ -34,6 +34,9 @@ def match_workouts(
     Raises:
         ValueError: If timezone_str is not a valid IANA timezone identifier.
     """
+    if fit.start_time is None:
+        return None
+
     user_tz = tz.gettz(timezone_str)
     if user_tz is None:
         raise ValueError(f"Unknown IANA timezone: {timezone_str!r}")
