@@ -28,6 +28,11 @@ def _load_exercises() -> list[GarminExercise]:
     Raises:
         FileNotFoundError: If data/garmin_exercises.csv has not been generated yet.
     """
+    if not _CSV_PATH.exists():
+        raise FileNotFoundError(
+            f"Garmin exercises CSV not found: {_CSV_PATH}\n"
+            "Run: .venv/bin/python scripts/extract_garmin_exercises.py"
+        )
     with open(_CSV_PATH, newline="", encoding="utf-8") as f:
         return [
             GarminExercise(
