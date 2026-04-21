@@ -73,3 +73,19 @@ class HevyWorkout:
     description: str
     exercises: list[HevyExercise]
     skipped_cardio: list[str]
+
+
+@dataclass
+class GarminExercise:
+    exercise_name: str               # e.g. 'barbell_bench_press' (underscored from SDK)
+    exercise_enum_int: int           # category_subtype for FIT set message field 8
+    exercise_category: str           # e.g. 'bench_press' — grouping key for Phase 5 picker
+    exercise_category_enum_int: int  # category int for FIT set message field 7
+
+
+@dataclass
+class MatchResult:
+    fit_workout: FitWorkout
+    hevy_workout: HevyWorkout
+    delta_minutes: float   # 0.0 for forced matches; actual UTC delta for auto-matches
+    is_forced: bool        # True when produced by force_match(); False for auto-match
