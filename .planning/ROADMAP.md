@@ -63,8 +63,8 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Foundation: models.py extensions (GarminExercise + MatchResult), database.py, garmin_exercises.csv extraction, requirements.txt, .gitignore
-- [x] 03-02-PLAN.md — matcher.py: timezone-aware match_workouts + force_match + tests (Wave 2, parallel with 03-03)
-- [x] 03-03-PLAN.md — mapper.py: fuzzy suggest_mapping + DB-backed confirm/retrieve + tests (Wave 2, parallel with 03-02)
+- [x] 03-02-PLAN.md — matcher.py: timezone-aware match_workouts + force_match + tests (Wave 2, parallel with 03-02)
+- [x] 03-03-PLAN.md — mapper.py: fuzzy suggest_mapping + DB-backed confirm/retrieve + tests (Wave 2, parallel with 03-03)
 - [x] 03-04-PLAN.md — Integration fixtures in conftest.py + full test suite GREEN gate
 
 ### Phase 4: FIT Builder + Merge Pipeline
@@ -77,7 +77,13 @@ Plans:
   3. Hevy weight values appear correctly in Garmin Connect (e.g., a 60 kg set shows as 60 kg, not 60 grams) — confirming the kg × 1000 integer scaling is applied correctly
   4. The app computes a CRC on the output FIT file before offering download and shows a clear error message if validation fails — a deliberately corrupted file is detected and blocked
   5. Developer can preview the merged workout data (Garmin biometrics alongside Hevy exercise records) before the FIT file is generated
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Wave 1: models.py Phase 4 dataclasses (MergePreview, BiometricSummary, GarminSetRecord, HevySetRecord), FitWorkout HR fields, fit_parser HR extraction, conftest fixture, test stubs
+- [ ] 04-02-PLAN.md — Wave 2: fit_generator.py binary walker (_walk_fit_binary, _extract_set_timestamps), CRC (_compute_fit_crc), timestamp assignment (_assign_timestamps)
+- [ ] 04-03-PLAN.md — Wave 3: fit_generator.py encoder helpers (_encode_hevy_sets, _flatten_hevy_sets, _build_set_dicts) and build_preview() public function
+- [ ] 04-04-PLAN.md — Wave 4: build_merged_fit() + _validate_fit_output() + path traversal guard + Garmin Connect manual upload gate
 
 ### Phase 5: Web UI + Deployment
 **Goal**: A user who has never seen the app can upload their files, pick their timezone, review and confirm exercise mappings, and download a merged FIT file — all from a browser, launched with a single command
@@ -102,5 +108,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. FIT Round-Trip Proof-of-Concept | 3/3 | Complete | 2026-04-20 |
 | 2. Core Parsers | 0/TBD | Not started | - |
 | 3. Workout Matching + Exercise Mapping | 4/4 | Complete    | 2026-04-21 |
-| 4. FIT Builder + Merge Pipeline | 0/TBD | Not started | - |
+| 4. FIT Builder + Merge Pipeline | 0/4 | Not started | - |
 | 5. Web UI + Deployment | 0/TBD | Not started | - |
