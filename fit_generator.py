@@ -7,12 +7,80 @@ Phase 4: full merge pipeline extends these functions.
 import datetime
 import pathlib
 import shutil
+import struct
 from fit_tool.fit_file import FitFile
 from fit_tool.fit_file_builder import FitFileBuilder
 from garmin_fit_sdk import Encoder, Profile as FitProfile
+from fitparse import FitFile as FitParseFile
+from models import (
+    FitWorkout,
+    HevyWorkout,
+    MatchResult,
+    GarminExercise,
+    MergePreview,
+    BiometricSummary,
+    GarminSetRecord,
+    HevySetRecord,
+)
+import mapper
 
 # FIT epoch offset: seconds between Unix epoch and FIT epoch (1989-12-31 UTC)
 _FIT_EPOCH_OFFSET = 631_065_600
+
+_FIT_CRC_TABLE = [
+    0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
+    0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400,
+]
+
+
+def _compute_fit_crc(data: bytes, crc: int = 0) -> int:
+    """CRC-16 over data bytes using the FIT-specific 16-entry nibble table.
+
+    Verified: reproduces header CRC 0x5AA9 (over bytes 0-11 of original_garmin.fit)
+    and file CRC 0x5135 (over the entire file).
+    """
+    for byte in data:
+        tmp = _FIT_CRC_TABLE[crc & 0x0F]
+        crc = (crc >> 4) & 0x0FFF
+        crc = crc ^ tmp ^ _FIT_CRC_TABLE[byte & 0x0F]
+        tmp = _FIT_CRC_TABLE[crc & 0x0F]
+        crc = (crc >> 4) & 0x0FFF
+        crc = crc ^ tmp ^ _FIT_CRC_TABLE[(byte >> 4) & 0x0F]
+    return crc
+
+
+def _assign_timestamps(
+    garmin_timestamps: list[int],
+    n_hevy_sets: int,
+    workout_end_fit: int,
+) -> list[int]:
+    """Return n_hevy_sets FIT epoch timestamps.
+
+    Strategy (D-03, D-04):
+    - First min(len(garmin_timestamps), n_hevy_sets) timestamps come from Garmin
+      mesg 225 field 6 (start_time), assigned by position.
+    - Overflow sets (index >= len(garmin_timestamps)) are distributed linearly
+      between the last Garmin timestamp and workout_end_fit.
+
+    Args:
+        garmin_timestamps: FIT epoch ints extracted from active mesg 225 field 6.
+        n_hevy_sets: Total number of Hevy sets to assign timestamps to.
+        workout_end_fit: FIT epoch int = session start_time + total_elapsed_time.
+
+    Returns:
+        List of length n_hevy_sets with FIT epoch timestamp ints.
+    """
+    result = []
+    for i in range(n_hevy_sets):
+        if i < len(garmin_timestamps):
+            result.append(garmin_timestamps[i])
+        else:
+            last = garmin_timestamps[-1] if garmin_timestamps else workout_end_fit - 3600
+            overflow_count = n_hevy_sets - len(garmin_timestamps)
+            idx = i - len(garmin_timestamps)
+            step = (workout_end_fit - last) // (overflow_count + 1)
+            result.append(last + step * (idx + 1))
+    return result
 
 
 def write_roundtrip_fit(in_path: str, out_path: str) -> None:
