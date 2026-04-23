@@ -237,19 +237,20 @@ def _get_workout_end_fit(fit_workout: FitWorkout) -> int:
 def _build_set_dicts(
     flat_sets: list[tuple],
     timestamps: list[int],
+    garmin_durations: list[float | None] | None = None,
 ) -> list[dict]:
     """Build the list of dicts passed to _encode_hevy_sets.
 
-    For each (HevyExercise, HevySet) pair at index i, looks up the confirmed mapping
-    from mapper.get_confirmed_mapping(). Falls back to GENERIC_FALLBACK if unmapped.
-
-    Duration is derived from Garmin timestamp intervals when available:
-    duration_s[i] = timestamps[i+1] - timestamps[i] for Garmin-sourced timestamps.
-    Overflow sets use 0 as duration (no Garmin timestamp interval available).
+    Takes exercise name, reps, and weight from Hevy. Takes timing (start_time,
+    duration) from the original Garmin set at the same position so that set time
+    and rest time display correctly in Garmin Connect.
 
     Args:
         flat_sets: List of (HevyExercise, HevySet) from _flatten_hevy_sets.
         timestamps: FIT epoch ints from _assign_timestamps (len == len(flat_sets)).
+        garmin_durations: Original Garmin set durations in seconds from
+            _extract_before_sets, matched positionally to flat_sets.
+            None entries or index out of range fall back to 0.
 
     Returns:
         List of dicts with keys: timestamp_fit, start_time_fit, repetitions,
@@ -265,9 +266,12 @@ def _build_set_dicts(
             else:
                 garmin_ex = mapper.GENERIC_FALLBACK
         ts = timestamps[i]
-        # Hevy does not record per-set duration — use 0 so Garmin shows accurate set time
-        # (computing gap between timestamps would include rest time, inflating the displayed value)
-        duration_s = 0
+        # Preserve original Garmin set duration so set time and rest time are accurate.
+        # Hevy does not record per-set duration; Garmin records it in field 0 (ms).
+        if garmin_durations and i < len(garmin_durations) and garmin_durations[i] is not None:
+            duration_s = garmin_durations[i]
+        else:
+            duration_s = 0
         result.append({
             'timestamp_fit': ts,
             'start_time_fit': ts,
@@ -756,8 +760,12 @@ def build_merged_fit(
     flat_sets = _flatten_hevy_sets(hevy_workout)
     timestamps = _assign_timestamps(active_start_times, len(flat_sets), workout_end_fit)
 
+    # Extract original Garmin set durations to preserve set time / rest time display
+    garmin_before = _extract_before_sets(original)
+    garmin_durations = [s.duration_s for s in garmin_before]
+
     # Encode Hevy sets via garmin-fit-sdk (D-10)
-    set_dicts = _build_set_dicts(flat_sets, timestamps)
+    set_dicts = _build_set_dicts(flat_sets, timestamps, garmin_durations)
     hevy_records = _encode_hevy_sets(set_dicts)
 
     # Assemble: pass_through + hevy_records form the new data region
