@@ -451,21 +451,188 @@ def build_minimal_strength_fit(out_path: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Phase 4: merge pipeline stubs (implemented in waves 2-4)
+# Phase 4: merge pipeline (Wave 3: encoder + preview)
 # ---------------------------------------------------------------------------
 
-def build_preview(match, timezone_str: str, fit_path: str):
+def _extract_before_sets(
+    fit_bytes: bytes,
+) -> list[GarminSetRecord]:
+    """Extract active Garmin set records from FIT binary as GarminSetRecord list.
+
+    Reads field 6 (start_time), field 0 (duration, stored as ms), field 3 (reps),
+    field 4 (weight, stored as uint16 x16), field 5 (set_type), field 7 (category array),
+    field 8 (category_subtype array) from mesg 225 data records.
+
+    Only active sets (set_type == 1) are included. Rest sets are excluded.
+
+    All 0xFFFF sentinel values (invalid uint16) are mapped to None.
+
+    Returns:
+        List of GarminSetRecord in workout order.
+    """
+    FIT_EPOCH_BASE = datetime.datetime(1989, 12, 31, tzinfo=datetime.timezone.utc)
+    header_size = fit_bytes[0]
+    data_size = struct.unpack_from('<I', fit_bytes, 4)[0]
+    file_end = header_size + data_size
+
+    local_info: dict[int, dict] = {}
+    records: list[GarminSetRecord] = []
+    pos = header_size
+
+    while pos < file_end:
+        rh = fit_bytes[pos]
+        if rh & 0x80:
+            local_num = (rh >> 5) & 0x03
+            info = local_info.get(local_num)
+            if info is None:
+                break
+            pos += 1 + info['data_size']
+            continue
+
+        is_def = bool(rh & 0x40)
+        local_num = rh & 0x0F
+
+        if is_def:
+            is_dev = bool(rh & 0x20)
+            arch = fit_bytes[pos + 2]
+            fmt = '<H' if arch == 0 else '>H'
+            global_num = struct.unpack_from(fmt, fit_bytes, pos + 3)[0]
+            num_fields = fit_bytes[pos + 5]
+            fields = []
+            for i in range(num_fields):
+                fi = pos + 6 + i * 3
+                fields.append((fit_bytes[fi], fit_bytes[fi + 1], fit_bytes[fi + 2]))
+            def_size = 6 + num_fields * 3
+            data_sz = sum(sz for _, sz, _ in fields)
+            if is_dev:
+                dev_cnt = fit_bytes[pos + def_size]
+                dev_sz = sum(fit_bytes[pos + def_size + 1 + i * 3 + 1] for i in range(dev_cnt))
+                data_sz += dev_sz
+                def_size += 1 + dev_cnt * 3
+            local_info[local_num] = {'global': global_num, 'data_size': data_sz, 'fields': fields}
+            pos += def_size
+        else:
+            info = local_info[local_num]
+            total = 1 + info['data_size']
+            if info['global'] == 225:
+                raw = fit_bytes[pos:pos + total]
+                fpos = 1
+                decoded: dict[int, int] = {}
+                for fnum, fsize, _ in info['fields']:
+                    if fsize == 4:
+                        decoded[fnum] = struct.unpack_from('<I', raw, fpos)[0]
+                    elif fsize == 2:
+                        decoded[fnum] = struct.unpack_from('<H', raw, fpos)[0]
+                    elif fsize == 1:
+                        decoded[fnum] = raw[fpos]
+                    fpos += fsize
+
+                set_type = decoded.get(5)
+                if set_type == 1:  # active only
+                    start_time_fit = decoded.get(6, 0)
+                    start_dt = (FIT_EPOCH_BASE + datetime.timedelta(seconds=start_time_fit)).replace(tzinfo=None)
+                    raw_reps = decoded.get(3)
+                    raw_weight = decoded.get(4)
+                    raw_dur = decoded.get(0)
+                    # 0xFFFF = invalid sentinel for uint16; 0 duration = no data
+                    reps = None if (raw_reps is None or raw_reps == 0xFFFF) else raw_reps
+                    weight_kg = None if (raw_weight is None or raw_weight == 0xFFFF) else raw_weight / 16.0
+                    duration_s = None if (raw_dur is None or raw_dur == 0) else raw_dur / 1000.0
+                    # category / category_subtype: fields 7 and 8 are uint16 arrays (6 bytes = 3 uint16)
+                    # First element is the relevant enum; 65534 = unknown
+                    cat = decoded.get(7, 65534)
+                    sub = decoded.get(8, 65534)
+                    records.append(GarminSetRecord(
+                        start_time=start_dt,
+                        reps=reps,
+                        weight_kg=weight_kg,
+                        duration_s=duration_s,
+                        category_enum_int=cat,
+                        exercise_enum_int=sub,
+                    ))
+            pos += total
+
+    return records
+
+
+def build_preview(
+    match: MatchResult,
+    timezone_str: str,
+    fit_path: str,
+) -> MergePreview:
     """Build before/after comparison without writing any file (D-06, D-08).
 
+    Safe to call multiple times. Phase 5 calls this first, then shows MergePreview
+    to the user before calling build_merged_fit() on confirm (D-09).
+
+    Per-set timestamps are taken from Garmin mesg 225 field 6 (D-03). If Hevy has more
+    sets than Garmin timestamps, the overflow sets receive linearly-distributed timestamps (D-04).
+
+    Weight in before_sets is decoded from the FIT wire format (stored uint16 / 16.0 = kg).
+    Weight in after_sets is the raw Hevy weight_kg (float) — garmin-fit-sdk will apply x16
+    during build_merged_fit() encoding (D-10).
+
     Args:
-        match: MatchResult pairing a Garmin FitWorkout with a HevyWorkout.
-        timezone_str: IANA timezone string for Hevy timestamp conversion.
+        match: Paired Garmin + Hevy workout from matcher.py.
+        timezone_str: IANA timezone string (e.g. 'Asia/Singapore'). Currently unused in
+                      build_preview (timestamps come from Garmin FIT, not Hevy local time),
+                      but retained for API symmetry with build_merged_fit (D-08).
         fit_path: Absolute path to the original Garmin FIT binary file.
 
     Returns:
-        MergePreview with biometric_summary, before_sets, after_sets.
+        MergePreview with biometric_summary, before_sets (Garmin active sets),
+        and after_sets (Hevy replacement sets with assigned timestamps).
+
+    Raises:
+        FileNotFoundError: If fit_path does not exist.
+        ValueError: If FitWorkout has no start_time.
     """
-    raise NotImplementedError("build_preview not yet implemented — Wave 3")
+    fit_path_obj = pathlib.Path(fit_path)
+    if not fit_path_obj.exists():
+        raise FileNotFoundError(f"FIT file not found: {fit_path!r}")
+
+    fit_bytes = fit_path_obj.read_bytes()
+    fit_workout = match.fit_workout
+    hevy_workout = match.hevy_workout
+
+    # --- Biometric summary (from FitWorkout populated by parse_fit_file) ---
+    summary = BiometricSummary(
+        total_elapsed_time=fit_workout.total_elapsed_time,
+        total_calories=fit_workout.total_calories,
+        avg_heart_rate=fit_workout.avg_heart_rate,
+        max_heart_rate=fit_workout.max_heart_rate,
+    )
+
+    # --- Before sets: Garmin active mesg 225 records decoded from binary ---
+    before_sets = _extract_before_sets(fit_bytes)
+
+    # --- After sets: Hevy replacement sets with assigned timestamps ---
+    _, active_start_times = _walk_fit_binary(fit_bytes)
+    workout_end_fit = _get_workout_end_fit(fit_workout)
+    flat_sets = _flatten_hevy_sets(hevy_workout)
+    timestamps = _assign_timestamps(active_start_times, len(flat_sets), workout_end_fit)
+
+    FIT_EPOCH_BASE = datetime.datetime(1989, 12, 31, tzinfo=datetime.timezone.utc)
+    after_sets: list[HevySetRecord] = []
+    for i, (ex, s) in enumerate(flat_sets):
+        garmin_ex = mapper.get_confirmed_mapping(ex.title)
+        if garmin_ex is None:
+            garmin_ex = mapper.GENERIC_FALLBACK
+        ts_fit = timestamps[i]
+        start_dt = (FIT_EPOCH_BASE + datetime.timedelta(seconds=ts_fit)).replace(tzinfo=None)
+        after_sets.append(HevySetRecord(
+            start_time=start_dt,
+            hevy_exercise_name=ex.title,
+            garmin_exercise=garmin_ex,
+            reps=s.reps,
+            weight_kg=s.weight_kg,
+        ))
+
+    return MergePreview(
+        biometric_summary=summary,
+        before_sets=before_sets,
+        after_sets=after_sets,
+    )
 
 
 def build_merged_fit(match, timezone_str: str, fit_path: str, out_path: str) -> str:

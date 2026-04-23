@@ -164,7 +164,6 @@ def test_timestamp_assignment(sample_match_result, sample_fit_path, output_dir):
 # MERGE-04: build_preview
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="build_preview not yet implemented — Wave 3")
 def test_build_preview(sample_match_result, sample_fit_path):
     """MERGE-04: build_preview returns MergePreview with biometric_summary + before/after sets."""
     preview = build_preview(sample_match_result, "Asia/Singapore", sample_fit_path)
