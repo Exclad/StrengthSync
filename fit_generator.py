@@ -198,6 +198,129 @@ def _walk_fit_binary(data: bytes) -> tuple[bytearray, list[int]]:
     return pass_through, active_start_times
 
 
+def _flatten_hevy_sets(
+    hevy_workout: HevyWorkout,
+) -> list[tuple]:
+    """Return a flat list of (HevyExercise, HevySet) pairs in workout order.
+
+    Excludes cardio exercises (those already flagged in hevy_workout.skipped_cardio).
+    The HevyExercise.title is preserved for use in HevySetRecord.hevy_exercise_name.
+    """
+    pairs: list[tuple] = []
+    skipped = set(hevy_workout.skipped_cardio)
+    for ex in hevy_workout.exercises:
+        if ex.title in skipped:
+            continue
+        for s in ex.sets:
+            pairs.append((ex, s))
+    return pairs
+
+
+def _get_workout_end_fit(fit_workout: FitWorkout) -> int:
+    """Return FIT epoch int for the workout end time.
+
+    Used to bound the linear timestamp fallback (D-04).
+    Falls back to start + 3600 if total_elapsed_time is missing.
+
+    Raises:
+        ValueError: If FitWorkout.start_time is None.
+    """
+    if fit_workout.start_time is None:
+        raise ValueError("FitWorkout.start_time is None — cannot compute workout end time")
+    elapsed = fit_workout.total_elapsed_time or 3600.0
+    end_dt = fit_workout.start_time + datetime.timedelta(seconds=elapsed)
+    # Convert naive UTC datetime to FIT epoch int
+    unix_ts = int(end_dt.replace(tzinfo=datetime.timezone.utc).timestamp())
+    return unix_ts - _FIT_EPOCH_OFFSET
+
+
+def _build_set_dicts(
+    flat_sets: list[tuple],
+    timestamps: list[int],
+) -> list[dict]:
+    """Build the list of dicts passed to _encode_hevy_sets.
+
+    For each (HevyExercise, HevySet) pair at index i, looks up the confirmed mapping
+    from mapper.get_confirmed_mapping(). Falls back to GENERIC_FALLBACK if unmapped.
+
+    Duration is derived from Garmin timestamp intervals when available:
+    duration_s[i] = timestamps[i+1] - timestamps[i] for Garmin-sourced timestamps.
+    Overflow sets use 0 as duration (no Garmin timestamp interval available).
+
+    Args:
+        flat_sets: List of (HevyExercise, HevySet) from _flatten_hevy_sets.
+        timestamps: FIT epoch ints from _assign_timestamps (len == len(flat_sets)).
+
+    Returns:
+        List of dicts with keys: timestamp_fit, start_time_fit, repetitions,
+        weight_kg, duration_s, category_enum_int, exercise_enum_int, message_index.
+    """
+    result = []
+    for i, (ex, s) in enumerate(flat_sets):
+        garmin_ex = mapper.get_confirmed_mapping(ex.title)
+        if garmin_ex is None:
+            garmin_ex = mapper.GENERIC_FALLBACK
+        ts = timestamps[i]
+        # Duration: use gap to next timestamp if available, else 0
+        if i + 1 < len(timestamps):
+            duration_s = max(0, timestamps[i + 1] - ts)
+        else:
+            duration_s = 0
+        result.append({
+            'timestamp_fit': ts,
+            'start_time_fit': ts,
+            'repetitions': s.reps,
+            'weight_kg': s.weight_kg,       # float kg or None; SDK applies x16
+            'duration_s': duration_s,
+            'category_enum_int': garmin_ex.exercise_category_enum_int,
+            'exercise_enum_int': garmin_ex.exercise_enum_int,
+            'message_index': i,
+        })
+    return result
+
+
+def _encode_hevy_sets(set_dicts: list[dict]) -> bytes:
+    """Encode Hevy set data as garmin-fit-sdk mesg 225 records.
+
+    Returns raw FIT record bytes: the encoder output stripped of its 14-byte file
+    header and trailing 2-byte CRC. These bytes are appended directly to the
+    pass-through buffer in build_merged_fit().
+
+    CRITICAL — weight (D-10, Pitfall 4):
+      Pass weight_kg as float kg. SDK applies x16 scale internally.
+      DO NOT multiply by 1000 or 16 — that produces values 62.5x or 16x too large.
+      Verified: 80.0 kg -> stored as 1280 (= 80 * 16) -> fitparse reads 80.0.
+
+    CRITICAL — array fields (Pitfall 6):
+      category and category_subtype are array fields. Pass as list[int] even for a
+      single value: [0] not 0. The SDK raises TypeError if passed a scalar.
+
+    Args:
+        set_dicts: List of dicts from _build_set_dicts.
+
+    Returns:
+        bytes containing only the FIT record bytes (definition + data messages for
+        mesg 225). No file header. No trailing CRC. Safe to append to splice output.
+    """
+    encoder = Encoder()
+    for s in set_dicts:
+        encoder.on_mesg(225, {
+            'timestamp': s['timestamp_fit'],
+            'start_time': s['start_time_fit'],
+            'repetitions': s.get('repetitions'),       # int or None (bodyweight)
+            'weight': s.get('weight_kg'),              # float kg or None; SDK x16
+            'set_type': 1,                             # always active
+            'duration': s.get('duration_s', 0),       # seconds; SDK stores as ms
+            'category': [s['category_enum_int']],      # list[int] — must be list
+            'category_subtype': [s['exercise_enum_int']],  # list[int] — must be list
+            'message_index': s['message_index'],
+        })
+    full_fit = encoder.close()
+    hdr_sz = full_fit[0]
+    rec_sz = struct.unpack_from('<I', full_fit, 4)[0]
+    return bytes(full_fit[hdr_sz : hdr_sz + rec_sz])
+
+
 def write_roundtrip_fit(in_path: str, out_path: str) -> None:
     """Read a FIT file and write it verbatim to out_path.
 

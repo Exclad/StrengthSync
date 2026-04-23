@@ -278,3 +278,113 @@ def test_walk_fit_binary_pass_through_preserves_biometrics(sample_fit_path):
     assert len(pass_through) > 40_000, (
         f"pass_through too small ({len(pass_through)} bytes) — biometric data may have been dropped"
     )
+
+
+# ---------------------------------------------------------------------------
+# Task 1 (Wave 3): _encode_hevy_sets, _flatten_hevy_sets, _build_set_dicts,
+# _get_workout_end_fit helpers
+# ---------------------------------------------------------------------------
+
+def test_encode_hevy_sets_returns_bytes():
+    """_encode_hevy_sets returns non-empty bytes for a single-set input."""
+    from fit_generator import _encode_hevy_sets
+    dicts = [{
+        'timestamp_fit': 1145353549,
+        'start_time_fit': 1145353549,
+        'repetitions': 8,
+        'weight_kg': 22.5,
+        'duration_s': 45,
+        'category_enum_int': 0,
+        'exercise_enum_int': 0,
+        'message_index': 0,
+    }]
+    result = _encode_hevy_sets(dicts)
+    assert isinstance(result, bytes), "must return bytes"
+    assert len(result) > 0, "must return non-empty bytes"
+
+
+def test_encode_hevy_sets_weight_scaling(sample_fit_path):
+    """_encode_hevy_sets weight=22.5 kg is stored correctly (fitparse reads 22.5)."""
+    import tempfile, struct as _struct
+    from fit_generator import _encode_hevy_sets, _compute_fit_crc
+    import fitparse
+
+    dicts = [{
+        'timestamp_fit': 1145353549,
+        'start_time_fit': 1145353549,
+        'repetitions': 8,
+        'weight_kg': 22.5,
+        'duration_s': 45,
+        'category_enum_int': 0,
+        'exercise_enum_int': 0,
+        'message_index': 0,
+    }]
+    record_bytes = _encode_hevy_sets(dicts)
+
+    # Wrap in minimal FIT file and re-parse to verify weight
+    header = bytearray(14)
+    header[0] = 14
+    header[1] = 0x10
+    header[2:4] = b'\x89\x0a'
+    record_len = len(record_bytes)
+    _struct.pack_into('<I', header, 4, record_len)
+    header[8:12] = b'.FIT'
+    hdr_crc = _compute_fit_crc(bytes(header[:12]))
+    _struct.pack_into('<H', header, 12, hdr_crc)
+    file_body = bytes(header) + record_bytes
+    file_crc = _compute_fit_crc(file_body)
+    full_file = file_body + _struct.pack('<H', file_crc)
+
+    with tempfile.NamedTemporaryFile(suffix='.fit', delete=False) as f:
+        f.write(full_file)
+        tmp_path = f.name
+
+    try:
+        with fitparse.FitFile(tmp_path) as ff:
+            sets = list(ff.get_messages('set'))
+        assert len(sets) == 1, f'expected 1 set, got {len(sets)}'
+        weight = sets[0].get_value('weight')
+        assert weight == 22.5, f'expected 22.5 kg, got {weight}'
+    finally:
+        import os; os.unlink(tmp_path)
+
+
+def test_flatten_hevy_sets_excludes_cardio():
+    """_flatten_hevy_sets returns (exercise, set) pairs excluding cardio exercises."""
+    from fit_generator import _flatten_hevy_sets
+    from models import HevyWorkout, HevyExercise, HevySet
+
+    s = HevySet(set_index=0, set_type='normal', weight_kg=60.0, reps=5,
+                distance_km=None, duration_seconds=None, rpe=None, superset_id=None)
+    cardio_set = HevySet(set_index=0, set_type='normal', weight_kg=None, reps=None,
+                         distance_km=1.0, duration_seconds=300.0, rpe=None, superset_id=None)
+
+    ex1 = HevyExercise(title='Barbell Squat', sets=[s, s])
+    ex_cardio = HevyExercise(title='Treadmill', sets=[cardio_set])
+
+    workout = HevyWorkout(
+        title='Test', start_time=None, end_time=None, description='',
+        exercises=[ex1, ex_cardio], skipped_cardio=['Treadmill']
+    )
+    pairs = _flatten_hevy_sets(workout)
+    assert len(pairs) == 2, f"Expected 2 pairs (cardio excluded), got {len(pairs)}"
+    assert all(ex.title == 'Barbell Squat' for ex, _ in pairs)
+
+
+def test_get_workout_end_fit_computes_correctly():
+    """_get_workout_end_fit converts FitWorkout start_time + elapsed to FIT epoch int."""
+    import datetime
+    from fit_generator import _get_workout_end_fit, _FIT_EPOCH_OFFSET
+    from models import FitWorkout
+
+    start = datetime.datetime(2026, 4, 17, 9, 45, 49)  # naive UTC
+    fw = FitWorkout(
+        start_time=start, end_time=None, total_calories=266,
+        total_elapsed_time=3600.0, device_serial=None,
+        avg_heart_rate=None, max_heart_rate=None,
+    )
+    result = _get_workout_end_fit(fw)
+    # start + 3600s in Unix epoch, minus FIT epoch offset
+    expected_unix = int(start.replace(tzinfo=datetime.timezone.utc).timestamp()) + 3600
+    expected_fit = expected_unix - _FIT_EPOCH_OFFSET
+    assert result == expected_fit, f"Expected {expected_fit}, got {result}"
