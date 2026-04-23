@@ -8,6 +8,7 @@ MERGE-03: Set timestamps assigned from Garmin mesg 225 field 6
 MERGE-04: build_preview returns MergePreview with before/after sets
 """
 import os
+import pathlib
 import struct
 import pytest
 import fitparse
@@ -15,12 +16,33 @@ from fit_tool.fit_file import FitFile
 from fit_generator import build_preview, build_merged_fit
 from models import MergePreview, GarminSetRecord, HevySetRecord, BiometricSummary
 
+# build_merged_fit requires out_path to be inside the project directory (path traversal
+# guard). Override the shared output_dir fixture with a project-local temp directory so
+# tests can write FIT files without triggering the security check.
+_TESTS_OUTPUT = pathlib.Path(__file__).parent.parent / "output" / "pytest_tmp"
+
+
+@pytest.fixture
+def output_dir(tmp_path):
+    """Return a project-local temp directory for merged FIT test output.
+
+    Overrides the shared conftest output_dir fixture: build_merged_fit() enforces that
+    out_path must be inside the project root, so pytest's system tmp_path would be
+    rejected. Using output/pytest_tmp/<unique-id>/ keeps files inside the project while
+    maintaining test isolation.
+    """
+    unique = _TESTS_OUTPUT / tmp_path.name
+    unique.mkdir(parents=True, exist_ok=True)
+    yield str(unique)
+    # Cleanup after test
+    import shutil
+    shutil.rmtree(str(unique), ignore_errors=True)
+
 
 # ---------------------------------------------------------------------------
 # FIT-03: Merged FIT accepted by both parse gates
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="build_merged_fit not yet implemented — Wave 3/4")
 def test_build_merged_fit_validates(sample_match_result, sample_fit_path, output_dir):
     """FIT-03: Merged FIT passes fitparse + fit-tool double validation (D-11)."""
     out_path = output_dir + "/merged.fit"
@@ -33,7 +55,6 @@ def test_build_merged_fit_validates(sample_match_result, sample_fit_path, output
     FitFile.from_file(result_path)
 
 
-@pytest.mark.xfail(reason="build_merged_fit not yet implemented — Wave 3/4")
 def test_proprietary_messages_preserved(sample_match_result, sample_fit_path, output_dir):
     """FIT-03: Proprietary message types 140, 288 must survive the byte-level splice."""
     out_path = output_dir + "/merged_prop.fit"
@@ -84,7 +105,6 @@ def test_proprietary_messages_preserved(sample_match_result, sample_fit_path, ou
 # FIT-04: Validation failure raises descriptive exception
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="_validate_fit_output not yet implemented — Wave 4")
 def test_validation_failure_raises(tmp_path):
     """FIT-04: A deliberately corrupt FIT file raises ValueError with a clear message (D-12)."""
     from fit_generator import _validate_fit_output
@@ -98,19 +118,28 @@ def test_validation_failure_raises(tmp_path):
 # MERGE-01: Non-set messages preserved verbatim
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="build_merged_fit not yet implemented — Wave 3/4")
 def test_non_set_messages_preserved(sample_match_result, sample_fit_path, output_dir):
     """MERGE-01: Non-mesg-225/227 message count unchanged after splice."""
     out_path = output_dir + "/merged_preserve.fit"
     build_merged_fit(
         sample_match_result, "Asia/Singapore", sample_fit_path, out_path
     )
-    # original_garmin.fit: 4871 total messages, 36 mesg 225, 0 mesg 227 => 4835 non-set
+    # original_garmin.fit: fitparse reports 4844 total messages, 36 mesg 225, 0 mesg 227
+    # => 4808 non-set messages preserved verbatim in merged output.
+    # (The research doc cited 4835 based on a binary-walk count of 4871; fitparse counts
+    # definition messages differently — the actual verified count is 4808.)
     with fitparse.FitFile(out_path) as ff:
         msgs = list(ff.get_messages())
     non_set = [m for m in msgs if m.mesg_num not in (225, 227)]
-    assert len(non_set) == 4835, (
-        f"Expected 4835 non-set messages, got {len(non_set)}. "
+    assert len(non_set) >= 4000, (
+        f"Non-set message count too low ({len(non_set)}) — biometric data may have been dropped."
+    )
+    # Exact count must match original: same non-set count before and after splice
+    with fitparse.FitFile(sample_fit_path) as ff_orig:
+        orig_msgs = list(ff_orig.get_messages())
+    orig_non_set = [m for m in orig_msgs if m.mesg_num not in (225, 227)]
+    assert len(non_set) == len(orig_non_set), (
+        f"Expected {len(orig_non_set)} non-set messages (same as original), got {len(non_set)}. "
         "Biometric messages may have been dropped during splice."
     )
 
@@ -119,7 +148,6 @@ def test_non_set_messages_preserved(sample_match_result, sample_fit_path, output
 # MERGE-02: Weight scaling
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="build_merged_fit not yet implemented — Wave 3/4")
 def test_weight_scaling(sample_match_result, sample_fit_path, output_dir):
     """MERGE-02: Weights are stored correctly (garmin-fit-sdk applies x16; do NOT pre-multiply)."""
     out_path = output_dir + "/merged_weight.fit"
@@ -140,7 +168,6 @@ def test_weight_scaling(sample_match_result, sample_fit_path, output_dir):
 # MERGE-03: Timestamp assignment
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="build_merged_fit not yet implemented — Wave 3/4")
 def test_timestamp_assignment(sample_match_result, sample_fit_path, output_dir):
     """MERGE-03: 18 Garmin timestamps assigned to first 18 Hevy sets; linear fallback for overflow."""
     out_path = output_dir + "/merged_ts.fit"
