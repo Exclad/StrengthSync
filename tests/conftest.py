@@ -61,3 +61,21 @@ def tmp_db_path(tmp_path):
     p = tmp_path / "test_mappings.db"
     init_db(p)
     return p
+
+
+# --- Phase 4 fixtures ---
+
+@pytest.fixture
+def sample_match_result(sample_fit_workout, sample_hevy_workouts):
+    """Return a MatchResult pairing original_garmin.fit with the Apr 17 Hevy 'Legs' workout.
+
+    Uses Asia/Singapore timezone (UTC+8). Garmin workout starts 2026-04-17 09:45:49 UTC;
+    Hevy 'Legs' workout starts 2026-04-17 17:46 local (= 09:46 UTC). Delta ~0.18 min.
+    """
+    from matcher import match_workouts
+    result = match_workouts(sample_fit_workout, sample_hevy_workouts, "Asia/Singapore")
+    assert result is not None, (
+        "sample_match_result fixture: no match found for original_garmin.fit + original_hevy.csv. "
+        "Verify that original_hevy.csv contains the Apr 17, 2026 Legs workout."
+    )
+    return result
