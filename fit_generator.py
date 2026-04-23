@@ -198,6 +198,112 @@ def _walk_fit_binary(data: bytes) -> tuple[bytearray, list[int]]:
     return pass_through, active_start_times
 
 
+def _patch_active_sets_inplace(
+    data: bytearray,
+    flat_sets: list[tuple],
+    garmin_ex_list: list[GarminExercise],
+) -> int:
+    """Patch active mesg 225 records in data with Hevy exercise/reps/weight.
+
+    Works in-place on a mutable bytearray. REST mesg 225 records and all other
+    records (HR, GPS, session, proprietary) are left byte-for-byte identical.
+    Only fields 3 (reps), 4 (weight), 7 (category), 8 (category_subtype) are
+    overwritten in active records. Timing fields (field 0 = duration, field 5 =
+    set_type, field 6 = start_time, field 254 = timestamp) are never touched, so
+    set time and rest time display correctly in Garmin Connect.
+
+    Args:
+        data: Mutable copy of the full FIT file bytes.
+        flat_sets: (HevyExercise, HevySet) pairs in Hevy workout order.
+        garmin_ex_list: Resolved GarminExercise per flat_set entry.
+
+    Returns:
+        Number of active mesg 225 records patched (≤ len(flat_sets)).
+    """
+    header_size = data[0]
+    data_size   = struct.unpack_from('<I', data, 4)[0]
+    file_end    = header_size + data_size
+    local_info: dict[int, dict] = {}
+    active_idx  = 0
+    pos         = header_size
+
+    while pos < file_end:
+        rh = data[pos]
+
+        if rh & 0x80:  # compressed timestamp record
+            local_num = (rh >> 5) & 0x03
+            if local_num not in local_info:
+                break
+            pos += 1 + local_info[local_num]['data_size']
+            continue
+
+        is_def    = bool(rh & 0x40)
+        local_num = rh & 0x0F
+
+        if is_def:
+            is_dev     = bool(rh & 0x20)
+            arch       = data[pos + 2]
+            fmt        = '<H' if arch == 0 else '>H'
+            global_num = struct.unpack_from(fmt, data, pos + 3)[0]
+            num_fields = data[pos + 5]
+            fields     = [
+                (data[pos + 6 + i * 3], data[pos + 6 + i * 3 + 1], data[pos + 6 + i * 3 + 2])
+                for i in range(num_fields)
+            ]
+            def_size = 6 + num_fields * 3
+            data_sz  = sum(sz for _, sz, _ in fields)
+            if is_dev:
+                dev_cnt  = data[pos + def_size]
+                dev_sz   = sum(data[pos + def_size + 1 + j * 3 + 1] for j in range(dev_cnt))
+                data_sz += dev_sz
+                def_size += 1 + dev_cnt * 3
+            local_info[local_num] = {
+                'global': global_num, 'data_size': data_sz,
+                'fields': fields, 'arch': arch,
+            }
+            pos += def_size
+
+        else:
+            info = local_info[local_num]
+            if info['global'] == 225 and active_idx < len(flat_sets):
+                # Determine set_type from field 5 before deciding to patch
+                fpos     = pos + 1
+                set_type = None
+                for fnum, fsize, _ in info['fields']:
+                    if fnum == 5 and fsize == 1:
+                        set_type = data[fpos]
+                        break
+                    fpos += fsize
+
+                if set_type == 1:  # active set — patch Hevy reps/weight/category
+                    ex, s     = flat_sets[active_idx]
+                    garmin_ex = garmin_ex_list[active_idx]
+                    fmt2      = '<H' if info['arch'] == 0 else '>H'
+                    fpos      = pos + 1
+                    for fnum, fsize, _ in info['fields']:
+                        if fnum == 3 and fsize == 2:          # repetitions uint16
+                            val = s.reps if s.reps is not None else 0xFFFF
+                            struct.pack_into(fmt2, data, fpos, val & 0xFFFF)
+                        elif fnum == 4 and fsize == 2:         # weight uint16 (kg × 16)
+                            if s.weight_kg is not None:
+                                val = min(int(round(s.weight_kg * 16)), 0xFFFE)
+                            else:
+                                val = 0xFFFF
+                            struct.pack_into(fmt2, data, fpos, val)
+                        elif fnum == 7 and fsize >= 2:         # category array — first uint16
+                            struct.pack_into(fmt2, data, fpos,
+                                            garmin_ex.exercise_category_enum_int & 0xFFFF)
+                        elif fnum == 8 and fsize >= 2:         # category_subtype array — first uint16
+                            struct.pack_into(fmt2, data, fpos,
+                                            garmin_ex.exercise_enum_int & 0xFFFF)
+                        fpos += fsize
+                    active_idx += 1
+
+            pos += 1 + info['data_size']
+
+    return active_idx
+
+
 def _flatten_hevy_sets(
     hevy_workout: HevyWorkout,
 ) -> list[tuple]:
@@ -237,24 +343,19 @@ def _get_workout_end_fit(fit_workout: FitWorkout) -> int:
 def _build_set_dicts(
     flat_sets: list[tuple],
     timestamps: list[int],
-    garmin_durations: list[float | None] | None = None,
 ) -> list[dict]:
-    """Build the list of dicts passed to _encode_hevy_sets.
+    """Build encoder input dicts for overflow Hevy sets (no matching Garmin slot).
 
-    Takes exercise name, reps, and weight from Hevy. Takes timing (start_time,
-    duration) from the original Garmin set at the same position so that set time
-    and rest time display correctly in Garmin Connect.
+    Used only for Hevy sets beyond the count of Garmin active slots. Primary sets
+    are patched in-place by _patch_active_sets_inplace, which preserves all Garmin
+    timing. Overflow sets use duration=0 (no Garmin duration available).
 
     Args:
-        flat_sets: List of (HevyExercise, HevySet) from _flatten_hevy_sets.
-        timestamps: FIT epoch ints from _assign_timestamps (len == len(flat_sets)).
-        garmin_durations: Original Garmin set durations in seconds from
-            _extract_before_sets, matched positionally to flat_sets.
-            None entries or index out of range fall back to 0.
+        flat_sets: (HevyExercise, HevySet) pairs for the overflow portion only.
+        timestamps: FIT epoch ints for each overflow set.
 
     Returns:
-        List of dicts with keys: timestamp_fit, start_time_fit, repetitions,
-        weight_kg, duration_s, category_enum_int, exercise_enum_int, message_index.
+        List of dicts with keys expected by _encode_hevy_sets.
     """
     result = []
     for i, (ex, s) in enumerate(flat_sets):
@@ -265,19 +366,12 @@ def _build_set_dicts(
                 garmin_ex = candidates[0][0]
             else:
                 garmin_ex = mapper.GENERIC_FALLBACK
-        ts = timestamps[i]
-        # Preserve original Garmin set duration so set time and rest time are accurate.
-        # Hevy does not record per-set duration; Garmin records it in field 0 (ms).
-        if garmin_durations and i < len(garmin_durations) and garmin_durations[i] is not None:
-            duration_s = garmin_durations[i]
-        else:
-            duration_s = 0
         result.append({
-            'timestamp_fit': ts,
-            'start_time_fit': ts,
+            'timestamp_fit': timestamps[i],
+            'start_time_fit': timestamps[i],
             'repetitions': s.reps,
-            'weight_kg': s.weight_kg,       # float kg or None; SDK applies x16
-            'duration_s': duration_s,
+            'weight_kg': s.weight_kg,
+            'duration_s': 0,
             'category_enum_int': garmin_ex.exercise_category_enum_int,
             'exercise_enum_int': garmin_ex.exercise_enum_int,
             'message_index': i,
@@ -747,46 +841,54 @@ def build_merged_fit(
     if not fit_path_obj.exists():
         raise FileNotFoundError(f"FIT file not found: {fit_path!r}")
 
-    original = fit_path_obj.read_bytes()
+    original   = fit_path_obj.read_bytes()
     header_size = original[0]
-
-    # Pass 1: walk binary — extract timestamps, build pass-through (D-01, D-02)
-    pass_through, active_start_times = _walk_fit_binary(original)
-
-    # Assign timestamps to Hevy sets (D-03, D-04)
     fit_workout = match.fit_workout
     hevy_workout = match.hevy_workout
-    workout_end_fit = _get_workout_end_fit(fit_workout)
-    flat_sets = _flatten_hevy_sets(hevy_workout)
-    timestamps = _assign_timestamps(active_start_times, len(flat_sets), workout_end_fit)
+    flat_sets   = _flatten_hevy_sets(hevy_workout)
 
-    # Extract original Garmin set durations to preserve set time / rest time display
-    garmin_before = _extract_before_sets(original)
-    garmin_durations = [s.duration_s for s in garmin_before]
+    # Resolve exercise mappings once for all Hevy sets
+    garmin_ex_list: list[GarminExercise] = []
+    for ex, _ in flat_sets:
+        garmin_ex = mapper.get_confirmed_mapping(ex.title)
+        if garmin_ex is None:
+            candidates = mapper.suggest_mapping(ex.title, limit=1)
+            if candidates and candidates[0][1] >= mapper.UNRESOLVED_THRESHOLD:
+                garmin_ex = candidates[0][0]
+            else:
+                garmin_ex = mapper.GENERIC_FALLBACK
+        garmin_ex_list.append(garmin_ex)
 
-    # Encode Hevy sets via garmin-fit-sdk (D-10)
-    set_dicts = _build_set_dicts(flat_sets, timestamps, garmin_durations)
-    hevy_records = _encode_hevy_sets(set_dicts)
+    # Patch active mesg 225 records in-place (D-03):
+    #   reps, weight, category/subtype ← Hevy
+    #   duration (set time), start_time, rest records ← Garmin (preserved verbatim)
+    data = bytearray(original)
+    n_patched = _patch_active_sets_inplace(data, flat_sets, garmin_ex_list)
 
-    # Assemble: pass_through + hevy_records form the new data region
-    combined_records = bytes(pass_through) + hevy_records
+    # Append overflow Hevy sets (when Hevy has more sets than Garmin active slots)
+    if len(flat_sets) > n_patched:
+        overflow_flat = flat_sets[n_patched:]
+        _, active_times = _walk_fit_binary(original)
+        workout_end_fit = _get_workout_end_fit(fit_workout)
+        all_ts = _assign_timestamps(active_times, len(flat_sets), workout_end_fit)
+        overflow_dicts = _build_set_dicts(overflow_flat, all_ts[n_patched:])
+        overflow_bytes = _encode_hevy_sets(overflow_dicts)
 
-    # Update header: copy original header, rewrite data_size, recompute header CRC
-    new_header = bytearray(original[:header_size])
-    struct.pack_into('<I', new_header, 4, len(combined_records))
-    if header_size == 14:  # 14-byte header includes a header CRC at bytes 12-13
-        struct.pack_into('<H', new_header, 12, _compute_fit_crc(bytes(new_header[:12])))
+        # Splice overflow before the trailing file CRC (last 2 bytes)
+        old_data_size = struct.unpack_from('<I', data, 4)[0]
+        new_data_size = old_data_size + len(overflow_bytes)
+        body  = bytes(data[:header_size + old_data_size]) + overflow_bytes
+        data  = bytearray(body)
+        struct.pack_into('<I', data, 4, new_data_size)
 
-    # Append file CRC over complete assembled bytes
-    file_bytes = bytes(new_header) + combined_records
-    file_crc = _compute_fit_crc(file_bytes)
-    final = file_bytes + struct.pack('<H', file_crc)
+    # Recompute header CRC (covers bytes 0-11) and file CRC
+    if header_size == 14:
+        struct.pack_into('<H', data, 12, _compute_fit_crc(bytes(data[:12])))
+    file_crc = _compute_fit_crc(bytes(data))
+    final = bytes(data) + struct.pack('<H', file_crc)
 
-    # Write output
     out_resolved.parent.mkdir(parents=True, exist_ok=True)
     out_resolved.write_bytes(final)
 
-    # Double-validate (D-11); raises ValueError on failure (D-12)
     _validate_fit_output(str(out_resolved))
-
     return str(out_resolved)
