@@ -230,3 +230,51 @@ def test_assign_timestamps_empty_garmin():
     assert len(result) == 3
     # All should be derived from linear fallback based on workout_end - 3600
     assert all(isinstance(t, int) for t in result)
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers: _extract_set_timestamps and _walk_fit_binary (Wave 2, Plan 04-02)
+# ---------------------------------------------------------------------------
+
+def test_walk_fit_binary_timestamp_count(sample_fit_path):
+    """_walk_fit_binary extracts exactly 18 active-set timestamps from original_garmin.fit."""
+    from fit_generator import _walk_fit_binary
+    with open(sample_fit_path, "rb") as f:
+        data = f.read()
+    _, timestamps = _walk_fit_binary(data)
+    assert len(timestamps) == 18, f"Expected 18 active timestamps, got {len(timestamps)}"
+
+
+def test_walk_fit_binary_timestamps_distinct(sample_fit_path):
+    """_walk_fit_binary returns 18 distinct start_time values (field 6, not field 254)."""
+    from fit_generator import _walk_fit_binary
+    with open(sample_fit_path, "rb") as f:
+        data = f.read()
+    _, timestamps = _walk_fit_binary(data)
+    assert len(set(timestamps)) == 18, (
+        f"Timestamps not all distinct — possible field 254 (workout start) used instead of field 6: {timestamps}"
+    )
+
+
+def test_walk_fit_binary_pass_through_smaller(sample_fit_path):
+    """_walk_fit_binary pass_through is smaller than original data_size (set records removed)."""
+    from fit_generator import _walk_fit_binary
+    import struct
+    with open(sample_fit_path, "rb") as f:
+        data = f.read()
+    pass_through, _ = _walk_fit_binary(data)
+    orig_data_size = struct.unpack_from("<I", data, 4)[0]
+    assert len(pass_through) < orig_data_size, (
+        f"pass_through ({len(pass_through)}) should be smaller than orig data_size ({orig_data_size})"
+    )
+
+
+def test_walk_fit_binary_pass_through_preserves_biometrics(sample_fit_path):
+    """_walk_fit_binary pass_through is > 40KB (biometric record data preserved)."""
+    from fit_generator import _walk_fit_binary
+    with open(sample_fit_path, "rb") as f:
+        data = f.read()
+    pass_through, _ = _walk_fit_binary(data)
+    assert len(pass_through) > 40_000, (
+        f"pass_through too small ({len(pass_through)} bytes) — biometric data may have been dropped"
+    )
