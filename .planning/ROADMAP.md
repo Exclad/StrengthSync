@@ -80,10 +80,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Wave 1: models.py Phase 4 dataclasses (MergePreview, BiometricSummary, GarminSetRecord, HevySetRecord), FitWorkout HR fields, fit_parser HR extraction, conftest fixture, test stubs
-- [ ] 04-02-PLAN.md — Wave 2: fit_generator.py binary walker (_walk_fit_binary, _extract_set_timestamps), CRC (_compute_fit_crc), timestamp assignment (_assign_timestamps)
-- [ ] 04-03-PLAN.md — Wave 3: fit_generator.py encoder helpers (_encode_hevy_sets, _flatten_hevy_sets, _build_set_dicts) and build_preview() public function
-- [ ] 04-04-PLAN.md — Wave 4: build_merged_fit() + _validate_fit_output() + path traversal guard + Garmin Connect manual upload gate
+- [x] 04-01-PLAN.md — Wave 1: models.py Phase 4 dataclasses (MergePreview, BiometricSummary, GarminSetRecord, HevySetRecord), FitWorkout HR fields, fit_parser HR extraction, conftest fixture, test stubs
+- [x] 04-02-PLAN.md — Wave 2: fit_generator.py binary walker (_walk_fit_binary, _extract_set_timestamps), CRC (_compute_fit_crc), timestamp assignment (_assign_timestamps)
+- [x] 04-03-PLAN.md — Wave 3: fit_generator.py encoder helpers (_encode_hevy_sets, _flatten_hevy_sets, _build_set_dicts) and build_preview() public function
+- [x] 04-04-PLAN.md — Wave 4: build_merged_fit() + _validate_fit_output() + path traversal guard + Garmin Connect manual upload gate
 
 ### Phase 5: Web UI + Deployment
 **Goal**: A user who has never seen the app can upload their files, pick their timezone, review and confirm exercise mappings, and download a merged FIT file — all from a browser, launched with a single command

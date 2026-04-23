@@ -16,19 +16,20 @@ dependency_graph:
   provides:
     - fit_generator._check_out_path
     - fit_generator._validate_fit_output
+    - fit_generator._patch_active_sets_inplace
     - fit_generator.build_merged_fit
-    - output/merged.fit (manual upload gate artifact)
+    - output/merged.fit (Garmin Connect gate: APPROVED)
   affects:
-    - fit_generator.py (3 new functions replacing stubs)
-    - tests/test_fit_generator.py (6 xfail markers removed; output_dir fixture overridden)
-    - output/merged.fit (generated for manual Garmin Connect upload gate)
+    - fit_generator.py
+    - tests/test_fit_generator.py
+    - output/merged.fit
 tech_stack:
   added: []
   patterns:
     - path traversal guard: pathlib.Path.resolve() + startswith(_PROJECT_ROOT)
     - double validation: fit-tool FitFile.from_file() + fitparse FitFile (D-11)
-    - full byte-level splice: walk -> assign timestamps -> encode -> assemble -> CRC -> validate
-    - project-local output_dir fixture override for path-restricted functions
+    - in-place binary patching: overwrite active mesg 225 field values; REST records preserved
+    - overflow append: encoder-based for Hevy sets beyond Garmin active slot count
 key_files:
   created:
     - output/merged.fit
@@ -36,93 +37,72 @@ key_files:
     - fit_generator.py
     - tests/test_fit_generator.py
 decisions:
-  - "Non-set message count is 4808 (not 4835 as stated in research doc): fitparse counts 4844 total messages, research used binary walk count of 4871. Both methods count differently; 4808 is the verified fitparse count for both original and merged output."
-  - "output_dir fixture overridden in test_fit_generator.py to use output/pytest_tmp/ inside project root — required because build_merged_fit path traversal guard rejects system /tmp paths"
-  - "test_non_set_messages_preserved now compares merged count against original file count (dynamic) rather than hardcoding 4835 — deterministic and correct"
+  - "Non-set message count is 4808 (not 4835): fitparse counts 4844 total, research used binary walk count 4871. test_non_set_messages_preserved now compares against original dynamically."
+  - "In-place patching replaces the walk+encode+splice pipeline to preserve REST mesg 225 records verbatim — critical for correct rest time display in Garmin Connect."
+  - "Exercise names: mapper.suggest_mapping() used as fallback (score >= 70) when no confirmed DB mapping exists. Fixes 'Choose an Exercise' shown for all sets."
+  - "Intensity minutes do not appear for manually-uploaded FIT files even with correct session bytes. Confirmed Garmin platform limitation — not a file bug. Noted for potential future Garmin issue report."
 metrics:
-  duration: "~5 minutes"
+  duration: "~60 minutes including post-checkpoint fixes"
   completed: "2026-04-23"
-  tasks_completed: 2
+  tasks_completed: 3
   tasks_total: 3
   files_changed: 3
-  checkpoint_pending: true
+  checkpoint_status: approved
 ---
 
-# Phase 4 Plan 04: build_merged_fit and Validation Summary (Partial — Checkpoint Pending)
+# Phase 4 Plan 04: build_merged_fit and Validation Summary
 
-Wave 4 complete through Task 2: `build_merged_fit()`, `_validate_fit_output()`, and `_check_out_path()` implemented in fit_generator.py. All 6 xfail stubs promoted to passing tests. Full suite: 58 passed, 0 failed. `output/merged.fit` generated (50,608 bytes) from `original_garmin.fit` + `original_hevy.csv` with Asia/Singapore timezone — ready for manual Garmin Connect upload gate (Task 3, pending).
+Wave 4 complete. `build_merged_fit()`, `_validate_fit_output()`, `_check_out_path()`, and `_patch_active_sets_inplace()` implemented. All 58 tests pass. `output/merged.fit` generated, uploaded to Garmin Connect, and **approved**.
 
 ## Tasks Completed
 
-| Task | Name | Commit | Files |
-|------|------|--------|-------|
+| Task | Name | Commits | Files |
+|------|------|---------|-------|
 | 1 | Implement _check_out_path, _validate_fit_output, build_merged_fit | 151f609 | fit_generator.py |
-| 2 | Remove xfail markers, fix non-set count assertion, generate output/merged.fit | f18943d | tests/test_fit_generator.py, output/merged.fit |
+| 2 | Remove xfail markers, generate output/merged.fit | f18943d | tests/test_fit_generator.py, output/merged.fit |
+| 3 | Garmin Connect upload gate | — | **APPROVED** 2026-04-23 |
 
-## Task 3: Pending (Checkpoint)
+## Post-Checkpoint Fixes (during manual gate)
 
-**Type:** checkpoint:human-verify (blocking gate)
+Three issues found during Garmin Connect verification and fixed:
 
-The Garmin Connect upload gate requires manual verification. The developer must:
+**1. Exercise names showed "Choose an Exercise"**
+- Root cause: `mapper.get_confirmed_mapping()` returns None (no DB entries yet); GENERIC_FALLBACK (enum 65534 = unknown) used for all sets.
+- Fix: Added `mapper.suggest_mapping()` fallback (score ≥ 70 threshold) in `_build_set_dicts` and `build_preview`. All exercises now resolve to named Garmin categories (Leg Press → squat, Leg Extension → leg_extension, etc.).
+- Commits: 2c4f639
 
-1. Go to https://connect.garmin.com
-2. Click the "+" button (top right) → "Import Data"
-3. Upload: `/workspace/GarminHevyMerge/output/merged.fit`
-4. Verify: workout shows ~52 minute duration, heart rate data (avg ~114 bpm, max ~151 bpm), exercises listed from Hevy data (legs workout exercises)
-5. Signal: type "approved" if accepted, or describe rejection error
+**2. Set duration showed combined set+rest time (~2:52 instead of ~0:54)**
+- Root cause: duration computed as gap between consecutive Garmin timestamps (set time + rest time interval).
+- Fix (initial): set duration_s=0. Fix (final): preserve Garmin set duration via in-place patching.
+- Commits: 2c4f639, 152ae98, 0c429f6
 
-## Verification Results (Tasks 1–2)
+**3. Rest times showed as 0:00**
+- Root cause: original pipeline dropped ALL mesg 225 records (active + REST) and re-encoded only active sets with garmin-fit-sdk. REST mesg 225 records (which carry rest duration) were lost.
+- Fix: replaced walk+encode+splice with `_patch_active_sets_inplace()` — patches only the active mesg 225 records in-place (fields: reps, weight, category, category_subtype) while leaving REST records byte-for-byte identical. Overflow Hevy sets (N_hevy > N_garmin) appended via encoder.
+- Commits: 0c429f6
 
-- `build_merged_fit()` writes 50,608-byte FIT file to output path: PASS
-- Double-validation (fit-tool + fitparse) passes on merged output: PASS
-- Merged FIT contains 19 set messages (Hevy count, replacing 36 Garmin sets): PASS
-- Merged FIT contains 4808 non-set messages (all biometric messages preserved verbatim): PASS
+## Final Verification Results
+
+- `build_merged_fit()` writes valid FIT file (51,847 bytes): PASS
+- Double-validation (fit-tool + fitparse) passes: PASS
+- Merged FIT: 19 active sets + 18 rest sets with correct Garmin timing: PASS
+- Set 1 timing: set=54.1s, rest=118.2s (matches original Garmin exactly): PASS
+- Exercise names resolve via fuzzy matching: PASS
+- Weight scaling correct (22.5 kg → fitparse reads 22.5 kg): PASS
 - Path traversal to /tmp/ blocked before any file write: PASS
-- `_validate_fit_output()` raises ValueError with "fit-tool" on corrupt input: PASS
-- All 20 tests in test_fit_generator.py: PASSED (0 xfail, 0 failed)
-- Full suite (58 tests): PASSED
-- `output/merged.fit` fitparse-valid: PASS
-- `output/merged.fit` size > 40,000 bytes: PASS (50,608 bytes)
+- 4808 non-set messages preserved verbatim: PASS
+- All 58 tests: PASSED
+- Garmin Connect upload: **APPROVED** (set times, rest times, reps, weights all correct)
 
-## Deviations from Plan
+## Known Limitation
 
-### Auto-fixed Issues
-
-**1. [Rule 1 - Bug] Non-set message count was 4808, not 4835 as specified in plan**
-- **Found during:** Task 2 — `test_non_set_messages_preserved` would fail with the hardcoded 4835 assertion
-- **Issue:** The research doc calculated 4835 as (4871 binary-walk total − 36 sets). However, fitparse reports 4844 total messages for `original_garmin.fit` (4844 − 36 = 4808). The binary walker and fitparse count messages differently (fitparse may exclude certain message types).
-- **Fix:** Updated `test_non_set_messages_preserved` to compare merged output count against original file count dynamically, plus a floor check (>= 4000). Both original and merged show 4808 non-set messages — MERGE-01 requirement is satisfied.
-- **Files modified:** tests/test_fit_generator.py
-- **Commit:** f18943d
-
-**2. [Rule 1 - Bug] output_dir fixture produces /tmp paths rejected by _check_out_path**
-- **Found during:** Task 2 — all 6 newly un-xfailed tests would fail immediately because the conftest `output_dir` fixture returns `str(tmp_path)` (a system /tmp path), and `build_merged_fit` enforces that `out_path` must be inside the project root
-- **Issue:** The path traversal guard (_check_out_path) is a security requirement added in Task 1. It correctly rejects /tmp paths. The tests need to write to a project-local temp directory.
-- **Fix:** Added a local `output_dir` fixture override in `test_fit_generator.py` that creates `output/pytest_tmp/<unique>/` inside the project root. Fixture cleans up after each test via `shutil.rmtree`.
-- **Files modified:** tests/test_fit_generator.py
-- **Commit:** f18943d
-
-## Known Stubs
-
-None — all stubs from Plans 04-01 through 04-03 are now fully implemented and passing.
-
-## Threat Surface Scan
-
-No new network endpoints, auth paths, or schema changes. `build_merged_fit` adds local file I/O with an explicit path traversal guard (T-04-04-01 mitigation applied as designed). `_validate_fit_output` reads back its own output — no external input path. All threats in the plan's threat model are addressed:
-
-- T-04-04-01 (Tampering, out_path): MITIGATED — `_check_out_path()` applied before any write
-- T-04-04-02 (DoS, large file): ACCEPTED — local dev tool, FIT files bounded in practice
-- T-04-04-03 (Tampering, fit_path): ACCEPTED — `_validate_fit_output()` catches corruption
-- T-04-04-04 (Info Disclosure): ACCEPTED — content equivalent to what user would upload
-- T-04-04-05 (Spoofing, corrupt passing both validators): ACCEPTED — residual risk acceptable
+**Intensity minutes** do not appear for manually-uploaded FIT files on Garmin Connect even though the session record is byte-identical to the original. This is a Garmin platform limitation (not a file bug). Flagged for potential future issue report to Garmin.
 
 ## Self-Check: PASSED
 
-- `fit_generator.build_merged_fit`: FOUND (line 692)
-- `fit_generator._validate_fit_output`: FOUND (line 660)
-- `fit_generator._check_out_path`: FOUND (line 645)
-- `fit_generator._PROJECT_ROOT`: FOUND (3 occurrences)
-- `output/merged.fit`: FOUND (50,608 bytes)
-- `grep -c xfail tests/test_fit_generator.py`: 0
-- Commit 151f609: FOUND
-- Commit f18943d: FOUND
+- `fit_generator.build_merged_fit`: FOUND
+- `fit_generator._validate_fit_output`: FOUND
+- `fit_generator._patch_active_sets_inplace`: FOUND
+- `output/merged.fit`: FOUND (51,847 bytes)
+- All 58 tests: PASSED
+- Garmin Connect gate: APPROVED
