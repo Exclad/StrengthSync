@@ -142,3 +142,47 @@ def build_minimal_strength_fit(out_path: str) -> None:
     out_path_obj = pathlib.Path(out_path)
     out_path_obj.parent.mkdir(parents=True, exist_ok=True)
     out_path_obj.write_bytes(data)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: merge pipeline stubs (implemented in waves 2-4)
+# ---------------------------------------------------------------------------
+
+def build_preview(match, timezone_str: str, fit_path: str):
+    """Build before/after comparison without writing any file (D-06, D-08).
+
+    Args:
+        match: MatchResult pairing a Garmin FitWorkout with a HevyWorkout.
+        timezone_str: IANA timezone string for Hevy timestamp conversion.
+        fit_path: Absolute path to the original Garmin FIT binary file.
+
+    Returns:
+        MergePreview with biometric_summary, before_sets, after_sets.
+    """
+    raise NotImplementedError("build_preview not yet implemented — Wave 3")
+
+
+def build_merged_fit(match, timezone_str: str, fit_path: str, out_path: str) -> str:
+    """Write merged FIT file and return out_path (D-08).
+
+    Args:
+        match: MatchResult pairing a Garmin FitWorkout with a HevyWorkout.
+        timezone_str: IANA timezone string for Hevy timestamp conversion.
+        fit_path: Absolute path to the original Garmin FIT binary file.
+        out_path: Destination path for the merged .fit file.
+
+    Returns:
+        out_path after successful write and validation.
+
+    Raises:
+        ValueError: If CRC or parse validation fails (D-12).
+    """
+    raise NotImplementedError("build_merged_fit not yet implemented — Wave 3/4")
+
+
+def _validate_fit_output(path: str) -> None:
+    """Double-validate merged FIT: fit-tool parse gate + fitparse parse gate (D-11).
+
+    Raises descriptive ValueError (not bare RuntimeError) on failure (D-12).
+    """
+    raise NotImplementedError("_validate_fit_output not yet implemented — Wave 4")

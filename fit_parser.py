@@ -55,6 +55,8 @@ def parse_fit_file(path: str) -> FitWorkout:
     total_calories = None
     total_elapsed_time = None
     device_serial = None
+    avg_hr = None
+    max_hr = None
 
     with FitParseFile(path) as fitfile:
         for msg in fitfile.get_messages("record"):
@@ -84,6 +86,8 @@ def parse_fit_file(path: str) -> FitWorkout:
             start_time = s.get_value("start_time")
             total_calories = s.get_value("total_calories")
             total_elapsed_time = s.get_value("total_elapsed_time")
+            avg_hr = s.get_value("avg_heart_rate")    # int bpm or None (no HR sensor)
+            max_hr = s.get_value("max_heart_rate")    # int bpm or None
             if start_time is not None and total_elapsed_time is not None:
                 end_time = start_time + timedelta(seconds=total_elapsed_time)
 
@@ -102,4 +106,6 @@ def parse_fit_file(path: str) -> FitWorkout:
         gps_track=gps_track,
         cadence_samples=cadence_samples,
         power_samples=power_samples,
+        avg_heart_rate=avg_hr,
+        max_heart_rate=max_hr,
     )

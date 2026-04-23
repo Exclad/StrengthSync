@@ -45,6 +45,8 @@ class FitWorkout:
     gps_track: list[GPSPoint] = field(default_factory=list)
     cadence_samples: list[CadenceSample] = field(default_factory=list)
     power_samples: list[PowerSample] = field(default_factory=list)
+    avg_heart_rate: int | None = None
+    max_heart_rate: int | None = None
 
 
 @dataclass
@@ -89,3 +91,41 @@ class MatchResult:
     hevy_workout: HevyWorkout
     delta_minutes: float   # 0.0 for forced matches; actual UTC delta for auto-matches
     is_forced: bool        # True when produced by force_match(); False for auto-match
+
+
+@dataclass
+class BiometricSummary:
+    """Garmin session-level biometric fields for MergePreview display."""
+    total_elapsed_time: float | None    # seconds, from session message
+    total_calories: int | None          # from session message
+    avg_heart_rate: int | None          # from session message; None if no HR sensor
+    max_heart_rate: int | None          # from session message; None if no HR sensor
+
+
+@dataclass
+class GarminSetRecord:
+    """Original set data extracted from Garmin FIT mesg 225 (before_sets in MergePreview)."""
+    start_time: datetime               # from field 6, converted to naive UTC datetime
+    reps: int | None                   # field 3; None if 0xFFFF
+    weight_kg: float | None            # field 4 / 16; None if 0xFFFF
+    duration_s: float | None           # field 0 / 1000; None if 0
+    category_enum_int: int             # field 7[0]; 65534 = unknown
+    exercise_enum_int: int             # field 8[0]; 65534 = unknown
+
+
+@dataclass
+class HevySetRecord:
+    """Hevy replacement set for after_sets in MergePreview."""
+    start_time: datetime               # assigned from D-03/D-04 timestamp
+    hevy_exercise_name: str            # raw exercise name from HevyExercise.title
+    garmin_exercise: GarminExercise    # confirmed mapping (or GENERIC_FALLBACK)
+    reps: int | None                   # from HevySet.reps
+    weight_kg: float | None            # from HevySet.weight_kg
+
+
+@dataclass
+class MergePreview:
+    """Before/after comparison for Phase 5 confirmation UI (D-06)."""
+    biometric_summary: BiometricSummary
+    before_sets: list[GarminSetRecord]
+    after_sets: list[HevySetRecord]
