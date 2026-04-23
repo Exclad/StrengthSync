@@ -259,13 +259,15 @@ def _build_set_dicts(
     for i, (ex, s) in enumerate(flat_sets):
         garmin_ex = mapper.get_confirmed_mapping(ex.title)
         if garmin_ex is None:
-            garmin_ex = mapper.GENERIC_FALLBACK
+            candidates = mapper.suggest_mapping(ex.title, limit=1)
+            if candidates and candidates[0][1] >= mapper.UNRESOLVED_THRESHOLD:
+                garmin_ex = candidates[0][0]
+            else:
+                garmin_ex = mapper.GENERIC_FALLBACK
         ts = timestamps[i]
-        # Duration: use gap to next timestamp if available, else 0
-        if i + 1 < len(timestamps):
-            duration_s = max(0, timestamps[i + 1] - ts)
-        else:
-            duration_s = 0
+        # Hevy does not record per-set duration — use 0 so Garmin shows accurate set time
+        # (computing gap between timestamps would include rest time, inflating the displayed value)
+        duration_s = 0
         result.append({
             'timestamp_fit': ts,
             'start_time_fit': ts,
@@ -617,7 +619,11 @@ def build_preview(
     for i, (ex, s) in enumerate(flat_sets):
         garmin_ex = mapper.get_confirmed_mapping(ex.title)
         if garmin_ex is None:
-            garmin_ex = mapper.GENERIC_FALLBACK
+            candidates = mapper.suggest_mapping(ex.title, limit=1)
+            if candidates and candidates[0][1] >= mapper.UNRESOLVED_THRESHOLD:
+                garmin_ex = candidates[0][0]
+            else:
+                garmin_ex = mapper.GENERIC_FALLBACK
         ts_fit = timestamps[i]
         start_dt = (FIT_EPOCH_BASE + datetime.timedelta(seconds=ts_fit)).replace(tzinfo=None)
         after_sets.append(HevySetRecord(
