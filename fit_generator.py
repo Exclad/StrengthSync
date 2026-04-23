@@ -83,6 +83,121 @@ def _assign_timestamps(
     return result
 
 
+def _extract_set_timestamps(raw: bytes, fields: list[tuple], out: list[int]) -> None:
+    """Append active set start_time values (field 6) from a mesg 225 data record.
+
+    CRITICAL — field disambiguation (D-03, Pitfall 1):
+      field 254 (timestamp): holds the SAME workout start time for ALL 36 set records.
+                             This is useless for per-set timing — do NOT use it.
+      field 6 (start_time): holds the DISTINCT per-set start time — use this field.
+
+    Args:
+        raw: Raw bytes of the mesg 225 data record (includes 1-byte header).
+        fields: List of (field_num, field_size, base_type) tuples from the definition.
+        out: Output list to append active-set start_time values to.
+    """
+    fpos = 1  # skip record header byte
+    decoded: dict[int, int] = {}
+    for fnum, fsize, _ in fields:
+        if fsize == 4:
+            decoded[fnum] = struct.unpack_from('<I', raw, fpos)[0]
+        elif fsize == 2:
+            decoded[fnum] = struct.unpack_from('<H', raw, fpos)[0]
+        elif fsize == 1:
+            decoded[fnum] = raw[fpos]
+        # Skip multi-byte array fields we don't need (e.g. field 7/8 of size 6)
+        fpos += fsize
+
+    start_time = decoded.get(6)
+    set_type = decoded.get(5)
+    # set_type 1 = active; guard against 0xFFFF sentinel
+    if start_time and start_time != 0xFFFFFFFF and set_type == 1:
+        out.append(start_time)
+
+
+def _walk_fit_binary(data: bytes) -> tuple[bytearray, list[int]]:
+    """Walk a FIT binary byte-by-byte. Return (pass_through_bytes, active_set_start_times).
+
+    Pass-through contains all records EXCEPT mesg 225 (set) and mesg 227 (exercise_title).
+    Both definition AND data records for mesg 225/227 are excluded from pass_through.
+
+    Active-set start_time values (FIT epoch int, field 6 of mesg 225) are extracted
+    from mesg 225 data records with set_type==1 and returned in active_set_start_times.
+
+    IMPORTANT (Pitfall 5): local_info is ALWAYS updated when a definition is parsed,
+    even for mesg 225/227. Without this, data records for those local numbers cause
+    KeyError because the byte cursor cannot advance past them.
+
+    IMPORTANT (Pitfall 2): compressed timestamp records (bit 7 set) embed the local_num
+    in bits 6-5. Total size = 1 (header) + local_info[local_num]['data_size'].
+
+    Args:
+        data: Raw FIT file bytes (full file, including header and trailing CRC).
+
+    Returns:
+        Tuple of (pass_through bytearray, active_set_start_times list[int]).
+    """
+    header_size = data[0]
+    data_size = struct.unpack_from('<I', data, 4)[0]
+    file_end = header_size + data_size
+
+    local_info: dict[int, dict] = {}  # local_num -> {global, data_size, fields}
+    pass_through = bytearray()
+    active_start_times: list[int] = []
+    pos = header_size
+
+    while pos < file_end:
+        rh = data[pos]
+
+        # --- Compressed timestamp record (bit 7 set) ---
+        if rh & 0x80:
+            local_num = (rh >> 5) & 0x03
+            info = local_info[local_num]  # must already exist from prior definition
+            total = 1 + info['data_size']
+            if info['global'] not in (225, 227):
+                pass_through.extend(data[pos:pos + total])
+            pos += total
+            continue
+
+        is_def = bool(rh & 0x40)
+        local_num = rh & 0x0F
+
+        if is_def:
+            # --- Definition message ---
+            is_dev = bool(rh & 0x20)  # developer data extension flag
+            arch = data[pos + 2]       # 0 = little-endian, 1 = big-endian
+            fmt = '<H' if arch == 0 else '>H'
+            global_num = struct.unpack_from(fmt, data, pos + 3)[0]
+            num_fields = data[pos + 5]
+            fields = []
+            for i in range(num_fields):
+                fi = pos + 6 + i * 3
+                fields.append((data[fi], data[fi + 1], data[fi + 2]))
+            def_size = 6 + num_fields * 3
+            data_sz = sum(sz for _, sz, _ in fields)
+            if is_dev:
+                dev_cnt = data[pos + def_size]
+                dev_sz = sum(data[pos + def_size + 1 + i * 3 + 1] for i in range(dev_cnt))
+                data_sz += dev_sz
+                def_size += 1 + dev_cnt * 3
+            # ALWAYS update local_info even if we skip copying the bytes (Pitfall 5)
+            local_info[local_num] = {'global': global_num, 'data_size': data_sz, 'fields': fields}
+            if global_num not in (225, 227):
+                pass_through.extend(data[pos:pos + def_size])
+            pos += def_size
+        else:
+            # --- Data message ---
+            info = local_info[local_num]
+            total = 1 + info['data_size']
+            if info['global'] == 225:
+                _extract_set_timestamps(data[pos:pos + total], info['fields'], active_start_times)
+            if info['global'] not in (225, 227):
+                pass_through.extend(data[pos:pos + total])
+            pos += total
+
+    return pass_through, active_start_times
+
+
 def write_roundtrip_fit(in_path: str, out_path: str) -> None:
     """Read a FIT file and write it verbatim to out_path.
 
