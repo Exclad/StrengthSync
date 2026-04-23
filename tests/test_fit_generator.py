@@ -178,3 +178,55 @@ def test_build_preview(sample_match_result, sample_fit_path):
     assert preview.biometric_summary.avg_heart_rate == 114
     assert preview.biometric_summary.max_heart_rate == 151
     assert preview.biometric_summary.total_calories == 266
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers: _compute_fit_crc and _assign_timestamps (Wave 2, Plan 04-02)
+# ---------------------------------------------------------------------------
+
+def test_compute_fit_crc_header(sample_fit_path):
+    """_compute_fit_crc reproduces header CRC 0x5AA9 for first 12 bytes of original_garmin.fit."""
+    from fit_generator import _compute_fit_crc
+    with open(sample_fit_path, "rb") as f:
+        data = f.read()
+    header_crc = _compute_fit_crc(data[:12])
+    assert header_crc == 0x5AA9, f"Expected 0x5AA9, got {hex(header_crc)}"
+
+
+def test_compute_fit_crc_file(sample_fit_path):
+    """_compute_fit_crc reproduces file CRC stored in last 2 bytes of original_garmin.fit."""
+    from fit_generator import _compute_fit_crc
+    import struct
+    with open(sample_fit_path, "rb") as f:
+        data = f.read()
+    computed = _compute_fit_crc(data[:-2])
+    stored = struct.unpack_from("<H", data, len(data) - 2)[0]
+    assert computed == stored, f"File CRC mismatch: computed {hex(computed)} stored {hex(stored)}"
+
+
+def test_assign_timestamps_garmin_priority():
+    """_assign_timestamps returns Garmin timestamps for first min(len, n) positions."""
+    from fit_generator import _assign_timestamps
+    garmin_ts = list(range(1000, 1018))  # 18 timestamps
+    result = _assign_timestamps(garmin_ts, 18, 2000)
+    assert result == garmin_ts, "All 18 positions must use Garmin timestamps when n == len"
+
+
+def test_assign_timestamps_linear_fallback():
+    """_assign_timestamps distributes overflow sets linearly between last Garmin ts and workout end."""
+    from fit_generator import _assign_timestamps
+    garmin_ts = list(range(1000, 1018))  # 18 timestamps
+    result = _assign_timestamps(garmin_ts, 19, 2000)
+    assert len(result) == 19, f"Expected 19 results, got {len(result)}"
+    assert result[:18] == garmin_ts, "First 18 must equal Garmin timestamps"
+    assert result[18] > garmin_ts[-1], "Overflow timestamp must be after last Garmin ts"
+    assert result[18] < 2000, "Overflow timestamp must be before workout end"
+
+
+def test_assign_timestamps_empty_garmin():
+    """_assign_timestamps handles empty garmin_timestamps by distributing all linearly."""
+    from fit_generator import _assign_timestamps
+    result = _assign_timestamps([], 3, 4000)
+    assert len(result) == 3
+    # All should be derived from linear fallback based on workout_end - 3600
+    assert all(isinstance(t, int) for t in result)
