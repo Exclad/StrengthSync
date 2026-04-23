@@ -635,27 +635,144 @@ def build_preview(
     )
 
 
-def build_merged_fit(match, timezone_str: str, fit_path: str, out_path: str) -> str:
-    """Write merged FIT file and return out_path (D-08).
+# ---------------------------------------------------------------------------
+# Phase 4: merge pipeline (Wave 4: build_merged_fit + validation)
+# ---------------------------------------------------------------------------
 
-    Args:
-        match: MatchResult pairing a Garmin FitWorkout with a HevyWorkout.
-        timezone_str: IANA timezone string for Hevy timestamp conversion.
-        fit_path: Absolute path to the original Garmin FIT binary file.
-        out_path: Destination path for the merged .fit file.
+_PROJECT_ROOT = pathlib.Path(__file__).parent.resolve()
 
-    Returns:
-        out_path after successful write and validation.
 
-    Raises:
-        ValueError: If CRC or parse validation fails (D-12).
+def _check_out_path(out_path: str) -> pathlib.Path:
+    """Verify out_path is inside the project directory. Raises ValueError if not (D-12).
+
+    Prevents path traversal: a caller cannot use ../../../etc/passwd or similar.
+    Phase 5 supplies out_path from a temp file or output/ subfolder — both are safe.
     """
-    raise NotImplementedError("build_merged_fit not yet implemented — Wave 3/4")
+    resolved = pathlib.Path(out_path).resolve()
+    if not str(resolved).startswith(str(_PROJECT_ROOT)):
+        raise ValueError(
+            f"out_path must be inside the project directory ({_PROJECT_ROOT}). "
+            f"Refusing to write to: {resolved}"
+        )
+    return resolved
 
 
 def _validate_fit_output(path: str) -> None:
-    """Double-validate merged FIT: fit-tool parse gate + fitparse parse gate (D-11).
+    """Double-validate a merged FIT file: fit-tool parse gate + fitparse parse gate (D-11).
 
-    Raises descriptive ValueError (not bare RuntimeError) on failure (D-12).
+    Raises descriptive ValueError (not bare RuntimeError) on failure so Phase 5 can
+    surface a clear error message to the user (D-12).
+
+    Note: fit-tool 0.9.15 may raise UnicodeDecodeError on byte 0xa7 in sport name fields.
+    If this occurs in the venv, re-apply the patch to
+    .venv/lib/python3.11/site-packages/fit_tool/field.py:
+      change `.decode('utf-8')` to `.decode('utf-8', errors='replace')` in _decode_string.
+
+    Args:
+        path: Absolute path to the FIT file to validate.
+
+    Raises:
+        ValueError: If either parse gate fails. Message begins with 'fit-tool' or 'fitparse'.
     """
-    raise NotImplementedError("_validate_fit_output not yet implemented — Wave 4")
+    try:
+        FitFile.from_file(path)
+    except Exception as exc:
+        raise ValueError(
+            f"fit-tool validation failed for merged FIT: {exc}\nPath: {path}"
+        ) from exc
+    try:
+        with FitParseFile(path) as ff:
+            list(ff.get_messages())
+    except Exception as exc:
+        raise ValueError(
+            f"fitparse validation failed for merged FIT: {exc}\nPath: {path}"
+        ) from exc
+
+
+def build_merged_fit(
+    match: MatchResult,
+    timezone_str: str,
+    fit_path: str,
+    out_path: str,
+) -> str:
+    """Write merged FIT file and return out_path (D-08).
+
+    Byte-level splice strategy (D-01, D-02):
+      1. Walk the Garmin FIT binary with _walk_fit_binary().
+         - Copies all non-mesg-225/227 records verbatim (biometric pass-through).
+         - Extracts per-set start_time values from mesg 225 field 6 (D-03).
+      2. Assign timestamps to Hevy sets using _assign_timestamps():
+         - First min(N_garmin, N_hevy) sets get Garmin timestamps (D-03).
+         - Overflow sets get linearly distributed timestamps (D-04).
+      3. Encode Hevy sets via garmin-fit-sdk Encoder using _encode_hevy_sets() (D-10).
+      4. Assemble: updated header + pass_through + hevy_records + file CRC.
+      5. Write to out_path and double-validate (D-11, D-12).
+
+    Weight encoding (D-10): pass float kg to garmin-fit-sdk; SDK applies x16 internally.
+    Do NOT multiply by 1000 or 16 — that produces incorrect values.
+
+    Args:
+        match: Paired Garmin + Hevy workout from matcher.py.
+        timezone_str: IANA timezone string (e.g. 'Asia/Singapore'). Used for future
+                      Hevy-timestamp-based features; currently timestamps come from
+                      Garmin mesg 225 field 6, making timezone_str unused in this function.
+        fit_path: Absolute path to the original Garmin FIT binary file.
+        out_path: Destination path for the merged .fit file. Must be inside the
+                  project directory (path traversal check enforced).
+
+    Returns:
+        out_path (same as input) after successful write and double-validation.
+
+    Raises:
+        FileNotFoundError: If fit_path does not exist.
+        ValueError: If out_path is outside the project directory (path traversal).
+        ValueError: If CRC or parse validation fails (D-12). Message begins with
+                    'fit-tool' or 'fitparse' for Phase 5 error display.
+        KeyError: If a Hevy exercise has no confirmed mapping and mapper raises.
+    """
+    # Security: reject out_path outside project root
+    out_resolved = _check_out_path(out_path)
+
+    fit_path_obj = pathlib.Path(fit_path)
+    if not fit_path_obj.exists():
+        raise FileNotFoundError(f"FIT file not found: {fit_path!r}")
+
+    original = fit_path_obj.read_bytes()
+    header_size = original[0]
+
+    # Pass 1: walk binary — extract timestamps, build pass-through (D-01, D-02)
+    pass_through, active_start_times = _walk_fit_binary(original)
+
+    # Assign timestamps to Hevy sets (D-03, D-04)
+    fit_workout = match.fit_workout
+    hevy_workout = match.hevy_workout
+    workout_end_fit = _get_workout_end_fit(fit_workout)
+    flat_sets = _flatten_hevy_sets(hevy_workout)
+    timestamps = _assign_timestamps(active_start_times, len(flat_sets), workout_end_fit)
+
+    # Encode Hevy sets via garmin-fit-sdk (D-10)
+    set_dicts = _build_set_dicts(flat_sets, timestamps)
+    hevy_records = _encode_hevy_sets(set_dicts)
+
+    # Assemble: pass_through + hevy_records form the new data region
+    combined_records = bytes(pass_through) + hevy_records
+
+    # Update header: copy original header, rewrite data_size, recompute header CRC
+    new_header = bytearray(original[:header_size])
+    struct.pack_into('<I', new_header, 4, len(combined_records))
+    if header_size == 14:  # 14-byte header includes a header CRC at bytes 12-13
+        struct.pack_into('<H', new_header, 12, _compute_fit_crc(bytes(new_header[:12])))
+
+    # Append file CRC over complete assembled bytes
+    file_bytes = bytes(new_header) + combined_records
+    file_crc = _compute_fit_crc(file_bytes)
+    final = file_bytes + struct.pack('<H', file_crc)
+
+    # Write output
+    out_resolved.parent.mkdir(parents=True, exist_ok=True)
+    out_resolved.write_bytes(final)
+
+    # Double-validate (D-11); raises ValueError on failure (D-12)
+    _validate_fit_output(str(out_resolved))
+
+    return str(out_resolved)
