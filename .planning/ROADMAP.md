@@ -116,3 +116,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Workout Matching + Exercise Mapping | 4/4 | Complete    | 2026-04-21 |
 | 4. FIT Builder + Merge Pipeline | 0/4 | Not started | - |
 | 5. Web UI + Deployment | 0/5 | Not started | - |
+
+### Phase 6: Monetization + UI Polish — Explore revenue model options (one-time purchase, subscription, freemium) and implement UI improvements identified during phase 5 verification (Library, History, Settings screens; improved timezone UX; additional polish)
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 6 to break down)

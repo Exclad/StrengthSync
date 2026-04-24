@@ -60,6 +60,10 @@ Phase 2 (Core Parsers) planned. All 3 plans verified by plan-checker (0 issues).
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 6 added: Monetization + UI Polish (revenue model exploration + Library/History/Settings screens, timezone UX improvements)
+
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
