@@ -95,8 +95,14 @@ Plans:
   3. User sees a mapping review screen listing all Hevy-to-Garmin exercise mappings with fuzzy suggestions; the app blocks the export button until all mappings are confirmed or explicitly skipped
   4. User can download the merged FIT file; a progress indicator is visible during processing so the user knows the app is working
   5. When the user uploads an invalid file (wrong type, corrupt FIT, non-Hevy CSV, failed match) the app shows a clear, actionable error message describing what went wrong and what to do next — it does not show a Python traceback or crash silently
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 5 plans
+
+Plans:
+- [ ] 05-00-PLAN.md — Wave 0: test stubs — Flask test client fixture + 9 RED stubs for all API routes
+- [ ] 05-01-PLAN.md — Wave 1: Flask API routes — GET /api/timezones, GET /api/exercises, POST /api/upload, POST /api/match, POST /api/map/suggest, POST /api/map/confirm, POST /api/preview, POST /api/export
+- [ ] 05-02-PLAN.md — Wave 2a: data.jsx mock stubs cleared; ScreenUpload wired to /api/upload + /api/timezones
+- [ ] 05-03-PLAN.md — Wave 2b: ScreenMatch wired to /api/match; ScreenMap wired to /api/map/suggest + /api/map/confirm
+- [ ] 05-04-PLAN.md — Wave 2c: ScreenPreview wired to /api/preview; ScreenDone wired to /api/export; app.jsx step guards; E2E checkpoint
 
 ## Progress
 
@@ -109,4 +115,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Core Parsers | 0/TBD | Not started | - |
 | 3. Workout Matching + Exercise Mapping | 4/4 | Complete    | 2026-04-21 |
 | 4. FIT Builder + Merge Pipeline | 0/4 | Not started | - |
-| 5. Web UI + Deployment | 0/TBD | Not started | - |
+| 5. Web UI + Deployment | 0/5 | Not started | - |
