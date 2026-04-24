@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>StrengthSync — Garmin × Hevy merger</title>
+<meta name="viewport" content="width=1440" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Light theme (default) */
+    --bg: #F4F3EE;
+    --bg-2: #EBEAE4;
+    --surface: #FFFFFF;
+    --surface-2: #F9F8F4;
+    --ink: #14140F;
+    --ink-2: #3A3A33;
+    --ink-3: #6E6E65;
+    --ink-4: #A6A69B;
+    --line: #E3E1D8;
+    --line-2: #D4D1C5;
+    --accent: #E6FF3D;     /* electric lime — signature */
+    --accent-ink: #14140F;
+    --accent-2: #FF5A1F;   /* burn orange — secondary */
+    --good: #2F9E5D;
+    --warn: #E09422;
+    --bad: #D84848;
+    --shadow: 0 1px 0 rgba(20,20,15,.04), 0 8px 24px rgba(20,20,15,.05);
+    --shadow-lg: 0 1px 0 rgba(20,20,15,.04), 0 24px 60px rgba(20,20,15,.12);
+  }
+  [data-theme="dark"] {
+    --bg: #0C0C0A;
+    --bg-2: #141412;
+    --surface: #171714;
+    --surface-2: #1E1E1B;
+    --ink: #F4F3EE;
+    --ink-2: #D5D3C8;
+    --ink-3: #8F8D82;
+    --ink-4: #5F5D55;
+    --line: #26251F;
+    --line-2: #32302A;
+    --accent: #E6FF3D;
+    --accent-ink: #0C0C0A;
+    --accent-2: #FF6B36;
+    --good: #5DD496;
+    --warn: #F2B04A;
+    --bad: #FF6B6B;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    --shadow-lg: 0 1px 0 rgba(0,0,0,.4), 0 30px 80px rgba(0,0,0,.55);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter Tight', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-feature-settings: "ss01","ss02","cv11";
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+    min-height: 100vh;
+  }
+
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0; }
+  .uc { text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* App shell */
+  .app {
+    max-width: 1440px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+
+  /* Top bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.03em;
+  }
+  .brand-mark {
+    width: 28px; height: 28px;
+    background: var(--ink);
+    color: var(--accent);
+    display: grid; place-items: center;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .brand-mark::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 45%, var(--accent) 45%, var(--accent) 55%, transparent 55%);
+    opacity: .35;
+  }
+  .brand-mark span { position: relative; z-index: 1; }
+  .brand em { font-style: normal; color: var(--ink-3); font-weight: 500; margin-left: 2px; }
+
+  .nav-pill {
+    display: inline-flex;
+    gap: 2px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 4px;
+    border-radius: 999px;
+  }
+  .nav-pill button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 0; background: transparent; color: var(--ink-3);
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .nav-pill button.active {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .nav-pill button:not(.active):hover { color: var(--ink); }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .icon-btn {
+    width: 36px; height: 36px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--ink-2);
+    display: grid; place-items: center;
+    transition: all .15s ease;
+  }
+  .icon-btn:hover { border-color: var(--line-2); color: var(--ink); }
+
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    display: grid; place-items: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  /* Progress rail */
+  .rail {
+    display: flex;
+    padding: 14px 32px;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .rail-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 10px 6px 0;
+    position: relative;
+    cursor: pointer;
+    transition: opacity .2s ease;
+  }
+  .rail-step .bar {
+    height: 3px;
+    background: var(--line-2);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .rail-step .bar::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .4s cubic-bezier(.4,0,.2,1);
+  }
+  .rail-step.done .bar::after { transform: scaleX(1); background: var(--ink); }
+  .rail-step.active .bar::after { transform: scaleX(1); background: var(--accent); }
+  .rail-step .meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; font-weight: 600;
+    color: var(--ink-3);
+  }
+  .rail-step .meta .num {
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0;
+  }
+  .rail-step.active .meta { color: var(--ink); }
+  .rail-step.done .meta { color: var(--ink-2); }
+  .rail-step .label { font-size: 14px; font-weight: 600; color: var(--ink-3); }
+  .rail-step.active .label, .rail-step.done .label { color: var(--ink); }
+
+  /* Main */
+  main {
+    padding: 36px 32px 80px;
+  }
+  .screen { display: none; animation: fadeIn .25s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .h-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 10px;
+  }
+  h1.h-display {
+    font-size: 56px;
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    font-weight: 700;
+    margin: 0 0 12px;
+  }
+  h1.h-display em { font-style: normal; color: var(--ink-3); }
+  .h-sub {
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink-3);
+    max-width: 620px;
+    margin: 0;
+  }
+
+  /* Buttons */
+  .btn {
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.005em;
+    border-radius: 10px;
+    padding: 12px 18px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform .08s ease, background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-dark {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .btn-dark:hover { background: var(--ink-2); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-2);
+    border-color: var(--line-2);
+  }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-sm { padding: 8px 12px; font-size: 13px; border-radius: 8px; }
+  .btn-lg { padding: 16px 24px; font-size: 15px; border-radius: 12px; }
+  .btn-xl {
+    padding: 22px 28px;
+    font-size: 18px;
+    border-radius: 14px;
+    font-weight: 700;
+  }
+
+  .kbd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    color: var(--ink-3);
+    background: var(--bg-2);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+  .card-pad { padding: 24px; }
+
+  /* Status chips */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .chip.good { background: color-mix(in oklab, var(--good) 15%, transparent); color: var(--good); }
+  .chip.warn { background: color-mix(in oklab, var(--warn) 15%, transparent); color: var(--warn); }
+  .chip.bad  { background: color-mix(in oklab, var(--bad) 15%, transparent); color: var(--bad); }
+  .chip.neutral { background: var(--bg-2); color: var(--ink-3); }
+  .chip.accent  { background: var(--accent); color: var(--accent-ink); }
+  .chip .dot {
+    width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+  }
+
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed;
+    right: 20px; bottom: 20px;
+    width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    padding: 18px;
+    z-index: 100;
+    display: none;
+  }
+  .tweaks.on { display: block; }
+  .tweaks h4 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+  }
+  .tweaks-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0;
+    font-size: 13px;
+  }
+  .tweaks-row + .tweaks-row { border-top: 1px solid var(--line); }
+  .tweaks-swatches { display: flex; gap: 6px; }
+  .tweaks-swatch {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform .1s ease;
+  }
+  .tweaks-swatch.sel { border-color: var(--ink); transform: scale(1.08); }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    width: 130px;
+    background: var(--line-2);
+    border-radius: 2px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--ink);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  /* Generic utils */
+  .row { display: flex; align-items: center; gap: 12px; }
+  .stack { display: flex; flex-direction: column; }
+  .grow { flex: 1; }
+  .divider { height: 1px; background: var(--line); }
+
+  /* Focus rings */
+  button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body data-theme="light">
+
+<div id="root"></div>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="{{ url_for('static', filename='src/icons.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/data.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/shell.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/screen_upload.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/screen_match.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/screen_map.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/screen_preview.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/screen_done.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/app.jsx') }}"></script>
+
+</body>
+</html>
