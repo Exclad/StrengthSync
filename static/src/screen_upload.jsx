@@ -43,7 +43,7 @@ function ScreenUpload({ onNext, state, update }) {
     ]});
   };
 
-  const canContinue = state.fitFiles.length > 0 && state.hevyMode && timezone && !uploading;
+  const canContinue = state.fitFiles.length > 0 && state.hevyFile && timezone && !uploading;
 
   const handleContinue = async () => {
     setUploadError(null);
@@ -171,39 +171,12 @@ function ScreenUpload({ onNext, state, update }) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
-            <HevyOption
-              sel={state.hevyMode === "api"}
-              onClick={() => update({ hevyMode: "api" })}
-              icon={<IconLink size={16}/>}
-              title="Connect Hevy account"
-              sub="OAuth2 · auto-fetch last 30 days"
-              badge="RECOMMENDED"
-            />
-            <HevyOption
-              sel={state.hevyMode === "file"}
-              onClick={() => update({ hevyMode: "file" })}
-              icon={<IconFile size={16}/>}
-              title="Upload export file"
-              sub="CSV from Hevy Settings → Export"
-            />
+          <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
+            <IconFile size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }}/>
+            <span style={{ fontSize: 13, color: "var(--ink-3)" }}>Export from <strong style={{ color: "var(--ink)" }}>Hevy Settings → Export</strong> then upload the CSV below.</span>
           </div>
 
-          {state.hevyMode === "api" && (
-            <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)" }}>
-              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 10 }}>Signed in as</div>
-              <div className="row">
-                <div className="avatar" style={{ width: 32, height: 32, fontSize: 11 }}>MK</div>
-                <div className="stack grow">
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>maya.k@hevy</div>
-                  <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>token · ••••••74fa · expires in 87d</div>
-                </div>
-                <span className="chip good"><span className="dot"></span>LIVE</span>
-              </div>
-            </div>
-          )}
-
-          {state.hevyMode === "file" && (
+          {true && (
             <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px dashed var(--line-2)", textAlign: "center" }}>
               <input ref={hevyInput} type="file" accept=".csv" style={{ display: "none" }}
                 onChange={e => { if (e.target.files[0]) update({ hevyFile: e.target.files[0] }); }} />
@@ -256,12 +229,15 @@ function ScreenUpload({ onNext, state, update }) {
             <option key={tz} value={tz}>{tz}</option>
           ))}
         </select>
+        {timezone && (
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <IconCheck size={12} style={{ color: 'var(--good)' }}/>
+            <span style={{ fontSize: 12, color: 'var(--good)', fontFamily: 'var(--font-mono)' }}>{timezone}</span>
+          </div>
+        )}
       </div>
 
-      <div className="row" style={{ marginTop: 32, justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        <div className="row" style={{ color: "var(--ink-3)", fontSize: 13 }}>
-          <IconInfo size={14}/> Your last sync was <strong style={{ color: "var(--ink-2)" }}>2 days ago</strong> — 4 workouts merged successfully.
-        </div>
+      <div className="row" style={{ marginTop: 24, justifyContent: "flex-end", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
           <button
             className="btn btn-dark btn-lg"
@@ -280,40 +256,6 @@ function ScreenUpload({ onNext, state, update }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function HevyOption({ sel, onClick, icon, title, sub, badge }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        textAlign: "left",
-        background: sel ? "var(--surface-2)" : "transparent",
-        border: `1px solid ${sel ? "var(--ink)" : "var(--line)"}`,
-        borderRadius: 12,
-        padding: "14px 14px",
-        cursor: "pointer",
-        font: "inherit",
-        color: "inherit",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        transition: "all .12s ease",
-      }}
-    >
-      <div style={{ width: 20, height: 20, borderRadius: 999, border: `2px solid ${sel ? "var(--ink)" : "var(--line-2)"}`, display: "grid", placeItems: "center", flexShrink: 0 }}>
-        {sel && <div style={{ width: 8, height: 8, borderRadius: 999, background: "var(--accent-2)" }}/>}
-      </div>
-      <div className="grow">
-        <div className="row" style={{ gap: 8 }}>
-          <span style={{ fontWeight: 600, fontSize: 14 }}>{title}</span>
-          {badge && <span className="chip accent" style={{ fontSize: 9 }}>{badge}</span>}
-        </div>
-        <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>{sub}</div>
-      </div>
-      <div style={{ color: "var(--ink-3)" }}>{icon}</div>
-    </button>
   );
 }
 

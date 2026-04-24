@@ -48,17 +48,14 @@ function ScreenMatch({ onNext, onBack, state, update }) {
 
   return (
     <div>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
-          <p className="h-eyebrow">STEP 02 / TIME-BASED MATCHING</p>
-          <h1 className="h-display" style={{ fontSize: 44 }}>
+          <p className="h-eyebrow" style={{ marginBottom: 4 }}>STEP 02 / TIME-BASED MATCHING</p>
+          <h1 className="h-display" style={{ fontSize: 32, margin: 0 }}>
             {loading ? <>Matching workouts&hellip;</> : matched ? <>We found <em>a match.</em></> : <><em>No match found.</em></>}
           </h1>
-          <p className="h-sub">Auto-matched by start-time proximity (±30 minute window). Pick manually if anything looks off.</p>
         </div>
-        <div className="row" style={{ gap: 8 }}>
-          <span className="chip neutral"><IconClock size={11}/> TOLERANCE · 30 MIN</span>
-        </div>
+        <span className="chip neutral"><IconClock size={11}/> TOLERANCE · 30 MIN</span>
       </div>
 
       {/* Error banner */}

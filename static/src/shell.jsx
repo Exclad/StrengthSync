@@ -16,19 +16,9 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, children }) {
             <div className="brand-mark"><span>S</span></div>
             <div>StrengthSync<em>/v1.0</em></div>
           </div>
-          <div className="nav-pill" role="tablist" aria-label="Sections">
-            <button className="active">Sync</button>
-            <button>Library</button>
-            <button>History</button>
-            <button>Settings</button>
-          </div>
         </div>
 
         <div className="topbar-right">
-          <span className="chip neutral mono">
-            <span className="dot" style={{ background: "var(--good)" }}></span>
-            HEVY · CONNECTED
-          </span>
           <button
             className="icon-btn"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -37,8 +27,6 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, children }) {
           >
             {theme === "dark" ? <IconSun/> : <IconMoon/>}
           </button>
-          <button className="icon-btn" aria-label="Settings"><IconSettings/></button>
-          <div className="avatar" title="Maya K.">MK</div>
         </div>
       </div>
 

@@ -1,6 +1,5 @@
 // Screen 4 — Preview merge with HR chart + set timeline
 function ScreenPreview({ onNext, onBack, state }) {
-  const [tab, setTab] = useState("merged");
   const [preview, setPreview] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,19 +22,10 @@ function ScreenPreview({ onNext, onBack, state }) {
 
   return (
     <div>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
-        <div>
-          <p className="h-eyebrow">STEP 04 / PREVIEW</p>
-          <h1 className="h-display" style={{ fontSize: 44 }}>Everything <em>checks out.</em></h1>
-          <p className="h-sub">All Garmin biometrics preserved. Hevy exercise data layered on top. Review below — nothing is written until you export.</p>
-        </div>
-        <div className="row" style={{ gap: 8 }}>
-          <div className="nav-pill">
-            <button onClick={() => setTab("before")} style={tab === "before" ? { background: "var(--ink)", color: "var(--bg)" } : {}}>Before</button>
-            <button onClick={() => setTab("merged")} style={tab === "merged" ? { background: "var(--ink)", color: "var(--bg)" } : {}}>Merged</button>
-            <button onClick={() => setTab("diff")} style={tab === "diff" ? { background: "var(--ink)", color: "var(--bg)" } : {}}>Diff</button>
-          </div>
-        </div>
+      <div style={{ marginBottom: 16 }}>
+        <p className="h-eyebrow" style={{ marginBottom: 4 }}>STEP 04 / PREVIEW</p>
+        <h1 className="h-display" style={{ fontSize: 32, margin: 0 }}>Everything <em>checks out.</em></h1>
+        <p className="h-sub" style={{ marginTop: 6, fontSize: 14 }}>Garmin biometrics preserved · Hevy exercises layered on top · nothing written until export.</p>
       </div>
 
       {/* Error banner */}
