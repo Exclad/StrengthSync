@@ -22,7 +22,7 @@ created: 2026-04-24
 | Preset | not applicable |
 | Component library | none (plain React 18 via CDN + Babel standalone) |
 | Icon library | Custom inline SVG icons in `static/src/icons.jsx` — `IconSettings` already exists |
-| Font | Inter Tight (400/500/600/700/800) + JetBrains Mono (400/500/600) via Google Fonts |
+| Font | Inter Tight (400/600) + JetBrains Mono (400/600) via Google Fonts |
 
 **No shadcn gate applicable.** This project uses a hand-rolled CSS token system defined in `templates/index.html` `:root` and `[data-theme="dark"]` blocks. All new UI must use these tokens — no new tokens are needed for Phase 6.
 
@@ -45,7 +45,7 @@ All values drawn from the existing codebase (source: `templates/index.html` and 
 | 3xl | 64px | Not used in existing screens; use 2xl as maximum |
 
 Exceptions:
-- Topbar height: 70px (sticky, `top: 70px` for rail)
+- Topbar height: 70px (inherited from Phase 5 — not modified in Phase 6)
 - Rail height: 40px (sticky, `top: 70px` for rail; main content starts at 110px from top)
 - Settings form row dividers: 1px `var(--line)` at 8px vertical padding each side (matches `tweaks-row` pattern)
 - Touch targets (buttons): minimum 36px height (matches `.icon-btn` 36×36 and `.btn` 12px+12px padding on 14px text)
@@ -60,8 +60,8 @@ All values are drawn directly from `templates/index.html` (source: confirmed exi
 |------|------|--------|-------------|------|---------------|
 | Body | 13px | 400 | 1.5 | Inter Tight | Card row text, form labels, descriptions |
 | Label | 12px | 600 | 1.4 | Inter Tight | Section labels, button text (`.btn`), eyebrow companion text |
-| Eyebrow | 11px | 400 (mono) | 1.2 | JetBrains Mono | `.h-eyebrow` — all-caps, letter-spacing 0.12em, color `var(--ink-3)` |
-| Heading | 32px | 700 | 1.02 | Inter Tight | Screen-level `h1.h-display` at `font-size: 32px` (scoped-down variant of 56px display) |
+| Eyebrow | 11px | 400 (mono) | 1.2 | JetBrains Mono | `.h-eyebrow` — all-caps, letter-spacing 0.12em, color `var(--ink-3)`; also used for PREVIEW label |
+| Heading | 32px | 600 | 1.02 | Inter Tight | Screen-level `h1.h-display` at `font-size: 32px` (scoped-down variant of 56px display) |
 
 Phase 6 adds no new typographic roles. Settings screen heading uses the same 32px `h-display` pattern as Library and History.
 
@@ -123,15 +123,15 @@ Settings screen layout: single-column stack of `.card` elements, each containing
 #### Group B: Export Filename Pattern
 - Label: `EXPORT FILENAME` — same eyebrow style
 - Description: 13px `var(--ink-3)` — "Customize the output filename. Use {date} for workout date and {workout} for workout name."
-- Control: `<input type="text">` styled as: `border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--ink); font-size: 13px; width: 100%`
+- Control: `<input type="text">` styled as: `border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--surface); color: var(--ink); font-size: 13px; width: 100%`
 - Default value: `{date}_{workout}.fit` (pre-populated from localStorage or this default)
-- Live preview: rendered below the input in a `var(--surface-2)` inset box, 12px padding, border-radius 8px, border `1px solid var(--line)`. Preview label: `PREVIEW` eyebrow in JetBrains Mono 10px. Preview value: JetBrains Mono 13px weight 600 `var(--ink)`.
+- Live preview: rendered below the input in a `var(--surface-2)` inset box, 12px padding, border-radius 8px, border `1px solid var(--line)`. Preview label: `PREVIEW` eyebrow in JetBrains Mono 11px. Preview value: JetBrains Mono 13px weight 600 `var(--ink)`.
 - Persistence: `localStorage.setItem('ss-filename-pattern', value)` on change (debounce 300ms)
 
 #### Group C: Output Folder
 - Label: `OUTPUT FOLDER` — eyebrow style
 - Description: 13px `var(--ink-3)` — "Path where merged FIT files are saved. Defaults to the output/ folder inside the app directory."
-- Control: `<input type="text">` — same styling as filename input above
+- Control: `<input type="text">` — same styling as filename input above (`padding: 8px 12px`)
 - Current value badge: `.chip.neutral.mono` showing current resolved path (fetched from `GET /api/settings` or hardcoded default `output/`)
 - Implementation decision (Claude discretion): use plain text input, not OS file picker. OS file picker requires `webkitdirectory` attribute or a server-side endpoint. Text input is sufficient for a developer-grade local tool. Users can paste the full path.
 - Persistence: `localStorage.setItem('ss-output-folder', value)` on blur
@@ -141,9 +141,9 @@ Settings screen layout: single-column stack of `.card` elements, each containing
 - Description: 13px `var(--ink-3)` — "Permanently deletes all saved exercise mappings. Future syncs will need to re-map exercises from scratch."
 - Button: `.btn` with inline style `background: color-mix(in oklab, var(--bad) 15%, var(--surface)); color: var(--bad); border: 1px solid color-mix(in oklab, var(--bad) 30%, var(--line)); border-radius: 10px;` — label "Clear all exercise mappings"
 - Confirmation modal: same pattern as Library screen's delete confirmation modal — fixed overlay `rgba(0,0,0,0.4)`, `.card` centered, max-width 380px, padding 28px. Contains:
-  - Heading 16px weight 700: "Clear all exercise mappings?"
+  - Heading 13px weight 600: "Clear all exercise mappings?"
   - Body 13px `var(--ink-3)`: "This will permanently delete all {N} saved mappings. Future syncs will re-map exercises from scratch. This cannot be undone."
-  - Button row: `Cancel` (`.btn.btn-ghost`) + `Clear all mappings` (`.btn` with `background: var(--bad); color: #fff; border: none`)
+  - Button row: `Keep my mappings` (`.btn.btn-ghost`) + `Clear all mappings` (`.btn` with `background: var(--bad); color: #fff; border: none`)
 - API call: `POST /api/map/reset` — on success, show `.chip.good` inline: "All mappings cleared."
 
 ### 2. Timezone Auto-Detect (Upload Screen modification)
@@ -171,14 +171,14 @@ Both existing screens already have partial empty states. Phase 6 upgrades them t
 
 **Library empty state (upgrade `screen_library.jsx` line 90-98):**
 - Icon: `<IconDumbbell size={32}/>` color `var(--ink-4)`, margin-bottom 16px
-- Heading: 16px weight 700 `var(--ink)` — "No exercise mappings saved yet"
+- Heading: 13px weight 600 `var(--ink)` — "No exercise mappings saved yet"
 - Body: 13px `var(--ink-3)` line-height 1.5 — "Mappings are saved automatically when you confirm exercises in the Map step. They carry over to every future sync so you won't need to re-map the same exercises."
 - CTA: `.btn.btn-dark.btn-sm` with `<IconArrow size={13}/>` — label "Start a sync" — calls `onBack()` (already wired to `setPage("sync")`)
 - Layout: `display: flex; flex-direction: column; align-items: center; padding: 48px 32px; text-align: center; gap: 8px` — CTA gets `margin-top: 16px`
 
 **History empty state (upgrade `screen_history.jsx` line 44-53):**
 - Icon: `<IconHistory size={32}/>` color `var(--ink-4)`, margin-bottom 16px
-- Heading: 16px weight 700 `var(--ink)` — "No merged files yet"
+- Heading: 13px weight 600 `var(--ink)` — "No merged files yet"
 - Body: 13px `var(--ink-3)` line-height 1.5 — "Merged FIT files appear here after you complete a sync. Each file is saved locally in the output/ folder and ready to upload to Garmin Connect."
 - CTA: `.btn.btn-dark.btn-sm` with `<IconArrow size={13}/>` — label "Start a sync" — calls `onBack()` (already wired to `setPage("sync")`)
 - Layout: same flex column centered pattern as Library, `padding: 48px 32px`
@@ -249,7 +249,7 @@ Required changes to `MappingDetail` in `screen_map.jsx`:
 | Settings DB reset modal body | "This will permanently delete all {N} saved mappings. Future syncs will re-map exercises from scratch. This cannot be undone." |
 | Settings DB reset modal confirm | "Clear all mappings" |
 | Settings DB reset success chip | "All mappings cleared." |
-| Settings DB reset cancel | "Cancel" |
+| Settings DB reset cancel | "Keep my mappings" |
 | Library empty state heading | "No exercise mappings saved yet" |
 | Library empty state body | "Mappings are saved automatically when you confirm exercises in the Map step. They carry over to every future sync so you won't need to re-map the same exercises." |
 | Library empty state CTA | "Start a sync" |
