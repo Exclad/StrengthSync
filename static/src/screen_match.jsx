@@ -65,11 +65,8 @@ function ScreenMatch({ onNext, onBack, state, update }) {
         </div>
       )}
 
-      {/* Loading state */}
-      {loading && <p style={{ color: 'var(--ink-3)', fontSize: 13, marginTop: 12 }}>Matching workouts&hellip;</p>}
-
       {/* Two-column matching board */}
-      <div style={{ marginTop: 32, display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 0, alignItems: "stretch" }}>
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 0, alignItems: "stretch" }}>
         <ColumnHeader title="Garmin" sub="From uploaded FIT file" icon={<IconWatch size={14}/>}/>
         <div style={{ width: 24 }}></div>
         <ColumnHeader title="Hevy" sub={`${hevy_workouts.length} workouts from CSV`} icon={<IconDumbbell size={14}/>}/>
