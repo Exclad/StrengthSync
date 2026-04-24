@@ -104,10 +104,25 @@ Plans:
 - [x] 05-03-PLAN.md — Wave 2b: ScreenMatch wired to /api/match; ScreenMap wired to /api/map/suggest + /api/map/confirm
 - [x] 05-04-PLAN.md — Wave 2c: ScreenPreview wired to /api/preview; ScreenDone wired to /api/export; app.jsx step guards; E2E checkpoint
 
+### Phase 6: Monetization + UI Polish — Settings screen, timezone UX, dark mode fix, empty states, error UX polish
+
+**Goal:** User can access a new Settings screen for timezone default, export filename, output folder, and DB reset. Dark mode brand mark is visible. Library and History have CTAs on empty states. All error banners are actionable. Timezone auto-detects from browser and persists across sessions.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11
+**Depends on:** Phase 5
+**Plans:** 6 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Wave 1: POST /api/map/reset endpoint in app.py + reset_all_mappings_db in database.py
+- [ ] 06-02-PLAN.md — Wave 2a: Dark mode brand mark CSS fix + Library empty state upgrade + History empty state upgrade
+- [ ] 06-03-PLAN.md — Wave 2b: Error UX copy polish (screen_upload, screen_match, screen_map) + UNRESOLVED affordance
+- [ ] 06-04-PLAN.md — Wave 3: New Settings screen (screen_settings.jsx) + shell/app/index.html wiring
+- [ ] 06-05-PLAN.md — Wave 4: Timezone auto-detect + persistence on Upload screen
+- [ ] 06-06-PLAN.md — Wave 5: Playwright CLI visual validation + human checkpoint
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -116,13 +131,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Workout Matching + Exercise Mapping | 4/4 | Complete    | 2026-04-21 |
 | 4. FIT Builder + Merge Pipeline | 0/4 | Not started | - |
 | 5. Web UI + Deployment | 0/5 | Not started | - |
-
-### Phase 6: Monetization + UI Polish — Explore revenue model options (one-time purchase, subscription, freemium) and implement UI improvements identified during phase 5 verification (Library, History, Settings screens; improved timezone UX; additional polish)
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 5
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 6 to break down)
+| 6. UI Polish + Settings | 0/6 | Not started | - |
