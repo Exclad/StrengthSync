@@ -2,7 +2,7 @@
 phase: "05"
 plan: "04"
 subsystem: frontend-preview-done-wiring
-status: partial  # Tasks 1+2 complete; Task 3 (human-verify checkpoint) pending
+status: complete
 tags: [react, jsx, api-wiring, fetch, preview, export, blob-download, wave-2c]
 dependency_graph:
   requires: [05-01, 05-02, 05-03]
