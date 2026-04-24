@@ -98,11 +98,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 05-00-PLAN.md — Wave 0: test stubs — Flask test client fixture + 9 RED stubs for all API routes
-- [ ] 05-01-PLAN.md — Wave 1: Flask API routes — GET /api/timezones, GET /api/exercises, POST /api/upload, POST /api/match, POST /api/map/suggest, POST /api/map/confirm, POST /api/preview, POST /api/export
-- [ ] 05-02-PLAN.md — Wave 2a: data.jsx mock stubs cleared; ScreenUpload wired to /api/upload + /api/timezones
-- [ ] 05-03-PLAN.md — Wave 2b: ScreenMatch wired to /api/match; ScreenMap wired to /api/map/suggest + /api/map/confirm
-- [ ] 05-04-PLAN.md — Wave 2c: ScreenPreview wired to /api/preview; ScreenDone wired to /api/export; app.jsx step guards; E2E checkpoint
+- [x] 05-00-PLAN.md — Wave 0: test stubs — Flask test client fixture + 9 RED stubs for all API routes
+- [x] 05-01-PLAN.md — Wave 1: Flask API routes — GET /api/timezones, GET /api/exercises, POST /api/upload, POST /api/match, POST /api/map/suggest, POST /api/map/confirm, POST /api/preview, POST /api/export
+- [x] 05-02-PLAN.md — Wave 2a: data.jsx mock stubs cleared; ScreenUpload wired to /api/upload + /api/timezones
+- [x] 05-03-PLAN.md — Wave 2b: ScreenMatch wired to /api/match; ScreenMap wired to /api/map/suggest + /api/map/confirm
+- [x] 05-04-PLAN.md — Wave 2c: ScreenPreview wired to /api/preview; ScreenDone wired to /api/export; app.jsx step guards; E2E checkpoint
 
 ## Progress
 
