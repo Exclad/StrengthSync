@@ -51,6 +51,38 @@ def confirm_mapping_db(
         )
 
 
+def get_all_mappings_db(
+    db_path: str | pathlib.Path = DB_PATH,
+) -> list[tuple]:
+    """Return all confirmed mappings ordered by most recent first.
+
+    Returns:
+        List of (hevy_exercise_name, garmin_exercise_name, garmin_exercise_enum_int, confirmed_at).
+    """
+    with sqlite3.connect(str(db_path)) as conn:
+        return conn.execute(
+            "SELECT hevy_exercise_name, garmin_exercise_name, garmin_exercise_enum_int, confirmed_at "
+            "FROM confirmed_mappings ORDER BY confirmed_at DESC"
+        ).fetchall()
+
+
+def delete_mapping_db(
+    hevy_name: str,
+    db_path: str | pathlib.Path = DB_PATH,
+) -> None:
+    """Delete a confirmed mapping by hevy exercise name.
+
+    Args:
+        hevy_name: Raw exercise name from Hevy CSV to delete.
+        db_path: Path to the SQLite database file.
+    """
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.execute(
+            "DELETE FROM confirmed_mappings WHERE hevy_exercise_name=?",
+            (hevy_name,),
+        )
+
+
 def get_confirmed_mapping_db(
     hevy_name: str,
     db_path: str | pathlib.Path = DB_PATH,

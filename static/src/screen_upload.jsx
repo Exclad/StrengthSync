@@ -34,26 +34,10 @@ function ScreenUpload({ onNext, state, update }) {
     addFiles(e.dataTransfer.files);
   };
 
-  // Demo seed files — no real File objects; upload will show error if attempted
-  const seed = () => {
-    update({ fitFiles: [
-      { id: "s1", name: "2026-04-18-064200-STRENGTH.fit", size: 184320, date: "Apr 18, 2026", _file: null },
-      { id: "s2", name: "2026-04-16-181200-STRENGTH.fit", size: 172096, date: "Apr 16, 2026", _file: null },
-      { id: "s3", name: "2026-04-15-071000-CARDIO.fit",   size: 92160,  date: "Apr 15, 2026", _file: null },
-    ]});
-  };
-
   const canContinue = state.fitFiles.length > 0 && state.hevyFile && timezone && !uploading;
 
   const handleContinue = async () => {
     setUploadError(null);
-
-    // Guard against demo seed data (no real File objects)
-    if (!state.fitFiles[0]._file) {
-      setUploadError('Demo data cannot be uploaded — select real files.');
-      return;
-    }
-
     setUploading(true);
     const formData = new FormData();
     formData.append('fit_file', state.fitFiles[0]._file);
@@ -132,9 +116,6 @@ function ScreenUpload({ onNext, state, update }) {
             </div>
             <div className="row" style={{ justifyContent: "center", gap: 8 }}>
               <button className="btn btn-dark btn-sm" onClick={(e) => { e.stopPropagation(); fitInput.current?.click(); }}>Browse files</button>
-              <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); seed(); }}>
-                <IconZap size={14}/> Use demo data
-              </button>
             </div>
           </div>
 

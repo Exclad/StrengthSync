@@ -363,6 +363,57 @@ def api_export():
 
 
 # ---------------------------------------------------------------------------
+# Library + History routes
+# ---------------------------------------------------------------------------
+
+@app.route("/api/mappings")
+def api_mappings():
+    rows = database.get_all_mappings_db()
+    return jsonify([
+        {"hevy_name": r[0], "garmin_name": r[1], "garmin_enum_int": r[2], "confirmed_at": r[3]}
+        for r in rows
+    ])
+
+
+@app.route("/api/map/delete", methods=["POST"])
+def api_map_delete():
+    data = request.get_json(silent=True) or {}
+    hevy_name = data.get("hevy_name", "").strip()
+    if not hevy_name:
+        return jsonify({"error": "hevy_name is required.", "detail": "empty"}), 400
+    database.delete_mapping_db(hevy_name)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/history")
+def api_history():
+    output_dir = pathlib.Path(__file__).parent / "output"
+    if not output_dir.exists():
+        return jsonify([])
+    files = []
+    for f in sorted(output_dir.glob("merged-*.fit"), key=lambda x: x.stat().st_mtime, reverse=True):
+        stat = f.stat()
+        files.append({
+            "name": f.name,
+            "size_kb": round(stat.st_size / 1024, 1),
+            "mtime": stat.st_mtime,
+        })
+    return jsonify(files)
+
+
+@app.route("/api/history/download")
+def api_history_download():
+    name = request.args.get("name", "").strip()
+    if not name or "/" in name or "\\" in name or not name.endswith(".fit"):
+        return jsonify({"error": "Invalid filename."}), 400
+    output_dir = pathlib.Path(__file__).parent / "output"
+    target = output_dir / name
+    if not target.exists() or not target.is_file():
+        return jsonify({"error": "File not found."}), 404
+    return send_file(str(target), mimetype="application/octet-stream", as_attachment=True, download_name=name)
+
+
+# ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
 

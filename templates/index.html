@@ -70,8 +70,6 @@
     max-width: 1440px;
     margin: 0 auto;
     min-height: 100vh;
-    display: grid;
-    grid-template-rows: auto 1fr;
   }
 
   /* Top bar */
@@ -79,12 +77,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 32px;
+    padding: 14px 32px;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 100;
   }
   .brand {
     display: flex;
@@ -168,10 +166,13 @@
   /* Progress rail */
   .rail {
     display: flex;
-    padding: 14px 32px;
+    padding: 10px 32px;
     gap: 4px;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
+    position: sticky;
+    top: 57px;
+    z-index: 99;
   }
   .rail-step {
     flex: 1;
@@ -216,7 +217,7 @@
 
   /* Main */
   main {
-    padding: 20px 32px 60px;
+    padding: 12px 32px 60px;
   }
   .screen { display: none; animation: fadeIn .25s ease; }
   .screen.active { display: block; }
@@ -415,6 +416,8 @@
 <script type="text/babel" src="{{ url_for('static', filename='src/screen_map.jsx') }}"></script>
 <script type="text/babel" src="{{ url_for('static', filename='src/screen_preview.jsx') }}"></script>
 <script type="text/babel" src="{{ url_for('static', filename='src/screen_done.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/screen_library.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='src/screen_history.jsx') }}"></script>
 <script type="text/babel" src="{{ url_for('static', filename='src/app.jsx') }}"></script>
 
 </body>

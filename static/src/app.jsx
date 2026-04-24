@@ -31,6 +31,7 @@ function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("ss-theme") || "light");
   const [tweaksOn, setTweaksOn] = useState(false);
   const [tweaks, setTweaks] = useState(TWEAK_DEFAULS);
+  const [page, setPage] = useState("sync");
 
   const [appState, setAppState] = useState({
     fitFiles: [],
@@ -110,8 +111,10 @@ function App() {
 
   return (
     <>
-      <Shell step={step} setStep={setStep} theme={theme} setTheme={setTheme} tweaksOn={tweaksOn}>
-        <div data-screen-label={`0${step+1} ${["Upload","Match","Map","Preview","Export"][step]}`}>
+      <Shell step={step} setStep={setStep} theme={theme} setTheme={setTheme} tweaksOn={tweaksOn} page={page} setPage={setPage}>
+        {page === "library" && <ScreenLibrary onBack={() => setPage("sync")}/>}
+        {page === "history" && <ScreenHistory onBack={() => setPage("sync")}/>}
+        {page === "sync" && <div data-screen-label={`0${step+1} ${["Upload","Match","Map","Preview","Export"][step]}`}>
           {step === 0 && <ScreenUpload
             onNext={(data) => { update({ uploadResult: data }); setStep(1); }}
             state={appState}
@@ -135,7 +138,7 @@ function App() {
             state={appState}
           />}
           {step === 4 && <ScreenDone state={appState} update={update} onRestart={handleRestart}/>}
-        </div>
+        </div>}
       </Shell>
 
       {/* Tweaks panel */}
