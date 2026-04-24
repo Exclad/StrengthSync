@@ -79,3 +79,22 @@ def sample_match_result(sample_fit_workout, sample_hevy_workouts):
         "Verify that original_hevy.csv contains the Apr 17, 2026 Legs workout."
     )
     return result
+
+
+# --- Phase 5 fixtures ---
+
+@pytest.fixture
+def app_client():
+    """Flask test client for Phase 5 API route tests.
+
+    Sets a SECRET_KEY so Flask session signing works during tests.
+    Uses testing=True to surface exceptions as 500 responses (not silent swallows).
+    """
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from app import app as flask_app
+    flask_app.config["TESTING"] = True
+    flask_app.config["SECRET_KEY"] = "test-secret-key-phase5"
+    with flask_app.test_client() as client:
+        yield client
