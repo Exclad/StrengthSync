@@ -34,16 +34,14 @@ created: 2026-04-24
 
 ## Spacing Scale
 
-All spacing values are multiples of 4. These values are extracted directly from inline styles in the prototype — do not substitute other values.
+The main token table contains only values that are genuine multiples of 4. Prototype-extracted chrome values that use a 2px base grid are listed separately in Exceptions — do not substitute other values for either set.
 
 | Token | Value | Usage in prototype |
 |-------|-------|--------------------|
 | xs | 4px | nav-pill inner gap, chip inner padding |
 | sm | 8px | button gap, chip padding block, icon-btn margin |
 | md | 12px | card inner padding (compact), tweaks row gap |
-| base | 14px | topbar right gap; rail step padding |
 | lg | 16px | default card item padding, btn padding-block |
-| xl | 18px | topbar padding-block, card-pad top |
 | 2xl | 20px | grid gap (screen grids), main section top gap |
 | 3xl | 24px | card-pad (`.card-pad { padding: 24px }`), btn-lg padding-block |
 | 4xl | 28px | MappingDetail visual section padding |
@@ -52,7 +50,9 @@ All spacing values are multiples of 4. These values are extracted directly from 
 | hero | 80px | screen_done spinner center padding |
 
 Exceptions:
-- Progress rail: `padding: 14px 32px` (non-standard 14px = closest to md, 32px = 5xl) — match exactly
+- `14px` (TopBar right gap, rail step padding): pixel-perfect value extracted from the locked prototype (D-01) — uses a 2px base grid for this specific UI chrome value. Not substitutable.
+- `18px` (TopBar padding-block, card-pad top): pixel-perfect value extracted from the locked prototype (D-01) — uses a 2px base grid for this specific UI chrome value. Not substitutable.
+- Progress rail: `padding: 14px 32px` (non-standard 14px per above exception, 32px = 5xl) — match exactly
 - Main content: `padding: 36px 32px 80px` — match exactly
 - Focus ring: `outline: 2px solid var(--accent); outline-offset: 2px` — accessibility, do not alter
 - Touch targets: All interactive controls (`.btn`, `.icon-btn`, `.nav-pill button`) are at minimum 36–44px height — do not reduce
@@ -61,27 +61,35 @@ Exceptions:
 
 ## Typography
 
-Two font families. Exactly 4 size roles. Exactly 2 weight levels per family.
+Two font families. Four declared size roles. Two declared weight levels per family.
 
 | Role | Family | Size | Weight | Line Height | Letter Spacing | Usage |
 |------|--------|------|--------|-------------|----------------|-------|
-| Body | Inter Tight | 13px | 400 | 1.5 | -0.01em (body default) | File row subtitles, chip text base, helper text |
-| Label | Inter Tight | 14px | 600 | 1.4 | -0.005em | Button labels, nav-pill buttons, card row labels, exercise names in lists |
-| Subheading | Inter Tight | 17px | 400 | 1.5 | -0.01em | `.h-sub` page subheadings (max-width: 620px) |
-| Heading | Inter Tight | 44–56px | 700 | 1.02 | -0.04em | `.h-display` — 56px on upload screen, 44px on inner screens; `em` spans colored `var(--ink-3)` |
-| Eyebrow | JetBrains Mono | 11px | 600 | 1.0 | 0.12em + uppercase | `.h-eyebrow`, `.mono.uc` — step labels, section labels |
-| Mono data | JetBrains Mono | 11–13px | 400–600 | 1.0 | 0 | File names, checksums, IDs, timestamps, KPI units |
+| Body | Inter Tight | 13px | regular: 400 | 1.5 | -0.01em | File row subtitles, chip text base, helper text |
+| ↳ Eyebrow / Mono sub-variant | JetBrains Mono | 11–13px | emphasis: 600 | 1.0 | 0.12em + uppercase (eyebrow); 0 (mono data) | `.h-eyebrow`, `.mono.uc` — step labels, section labels, file names, checksums, IDs, timestamps, KPI units |
+| Label | Inter Tight | 14px | emphasis: 600 | 1.4 | -0.005em | Button labels, nav-pill buttons, card row labels, exercise names in lists |
+| Subheading | Inter Tight | 17px | regular: 400 | 1.5 | -0.01em | `.h-sub` page subheadings (max-width: 620px) |
+| Heading | Inter Tight | 44–56px | emphasis: 700 | 1.02 | -0.04em | `.h-display` — 56px on upload screen, 44px on inner screens; `em` spans colored `var(--ink-3)` |
+
+**Weight levels declared:**
+- Inter Tight — `regular: 400` and `emphasis: 600–800 (prototype-locked range)`
+- JetBrains Mono — `regular: 400` and `emphasis: 600`
+
+**Exceptions (prototype-locked per D-01, not substitutable):**
+- Brand name uses Inter Tight 800 at 18px with letter-spacing -0.03em — this is a sub-variant of the Heading role locked by the prototype; do not reduce to 700 or another size.
+- Display headings may use Inter Tight 800 — the full 600–800 emphasis range is locked per D-01.
+- Brand mark ("S"): JetBrains Mono 700 14px inside a 28×28px rounded square.
 
 Additional typographic rules (from prototype source):
 - `font-feature-settings: "ss01","ss02","cv11"` on `<body>` — do not remove
 - `-webkit-font-smoothing: antialiased` on `<body>`
 - Uppercase utility class `.uc`: `text-transform: uppercase; letter-spacing: 0.08em` — used on chips and section headers
-- Brand name: `font-weight: 800; font-size: 18px; letter-spacing: -0.03em`
-- Brand mark ("S"): JetBrains Mono 700 14px inside a 28×28px rounded square
 
 ---
 
 ## Color
+
+Color proportions follow a 60/30/10 split: `--bg` / `--bg-2` cover ~60% of visible surface area as the dominant warm-neutral ground; `--surface` / `--surface-2` cover ~30% as secondary surfaces (cards, panels, nav); `--accent` and `--accent-2` are reserved for ~10% of the interface — specific elements only, listed in the Accent Usage Contract below.
 
 ### Light Theme (default: `data-theme="light"`)
 
@@ -202,6 +210,8 @@ All chips: JetBrains Mono, 11px, weight 600, uppercase, letter-spacing 0.04em, b
 
 **Entry state:** Empty — no files, no Hevy mode selected.
 
+The drag-drop zone (`2px dashed var(--line-2)` border on a `var(--surface-2)` background) is the primary visual anchor of this screen. It occupies the dominant left column and drives the first user action.
+
 **Gates:**
 - "Continue to matching" button: `opacity: 0.4; cursor: not-allowed` until `fitFiles.length > 0 AND hevyMode` is set.
 - Only file mode (`hevyMode: "file"`) is implemented for Phase 5. OAuth option (`hevyMode: "api"`) renders as deferred — show option but disable or show "Coming soon" on click (per deferred list).
@@ -267,7 +277,7 @@ All chips: JetBrains Mono, 11px, weight 600, uppercase, letter-spacing 0.04em, b
 
 **Generating phase:** Full-screen centered spinner (`screen_done.jsx` SVG animation with `animateTransform`). Spinner shows while `POST /api/export` is in flight (D-17 — no artificial delay). Progress log lines shown below spinner using `IconCheck + mono` list.
 
-**Ready phase:** Triggered on API response. Shows download card with file name (`{YYYY-MM-DD}-STRENGTH-merged.fit`), size, FIT Protocol version, and CRC-8 checksum (`.mono`). "Download" button: `.btn.btn-primary.btn-xl` with `IconDownload`.
+**Ready phase:** Triggered on API response. Shows download card with file name (`{YYYY-MM-DD}-STRENGTH-merged.fit`), size, FIT Protocol version, and CRC-8 checksum (`.mono`). "Download .fit file" button: `.btn.btn-primary.btn-xl` with `IconDownload`.
 
 **Validation banner:** Green left-border card (`borderLeft: "3px solid var(--good)"`) with success message when CRC passes.
 
@@ -283,7 +293,7 @@ All chips: JetBrains Mono, 11px, weight 600, uppercase, letter-spacing 0.04em, b
 | Primary CTA S2 | "Map exercises" | Match |
 | Primary CTA S3 | "Preview merge" | Map |
 | Primary CTA S4 | "Generate & export .fit" | Preview |
-| Primary CTA S5 | "Download" | Done |
+| Primary CTA S5 | "Download .fit file" | Done |
 | Restart action | "Sync another workout" | Done |
 | Empty state — no FIT files | Drag-drop zone: "Drop .fit files here" / "Multiple files OK — batch-process a whole week at once." | Upload |
 | Empty state — no Hevy match | "No auto-match. Pick manually:" + workout list | Match |
