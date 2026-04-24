@@ -42,23 +42,21 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
 
       {page === "sync" && (
         <div className="rail">
-          {steps.map(s => {
+          {steps.map((s, idx) => {
             const status = s.key < step ? "done" : s.key === step ? "active" : "";
             return (
-              <div
-                key={s.key}
-                className={`rail-step ${status}`}
-                onClick={() => { if (s.key <= step) setStep(s.key); }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="meta">
-                  <span className="num">0{s.key + 1}</span>
-                  <span>{status === "done" ? "DONE" : status === "active" ? "NOW" : "NEXT"}</span>
+              <React.Fragment key={s.key}>
+                <div
+                  className={`rail-step ${status}`}
+                  onClick={() => { if (s.key <= step) setStep(s.key); }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <span className="rail-num">{status === "done" ? "✓" : `0${s.key + 1}`}</span>
+                  <span className="rail-lbl">{s.label}</span>
                 </div>
-                <div className="bar"></div>
-                <div className="label">{s.label}</div>
-              </div>
+                {idx < steps.length - 1 && <div className="rail-sep"/>}
+              </React.Fragment>
             );
           })}
         </div>

@@ -163,57 +163,56 @@
     color: var(--ink);
   }
 
-  /* Progress rail */
+  /* Progress rail — single compact row */
   .rail {
     display: flex;
-    padding: 10px 32px;
-    gap: 4px;
+    align-items: center;
+    padding: 0 32px;
+    height: 40px;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
     position: sticky;
-    top: 57px;
+    top: 70px;
     z-index: 99;
+    gap: 0;
   }
   .rail-step {
-    flex: 1;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 6px 10px 6px 0;
-    position: relative;
+    align-items: center;
+    gap: 7px;
+    padding: 0 10px;
+    height: 28px;
+    border-radius: 7px;
     cursor: pointer;
-    transition: opacity .2s ease;
+    transition: background .15s ease;
+    white-space: nowrap;
   }
-  .rail-step .bar {
-    height: 3px;
-    background: var(--line-2);
-    border-radius: 2px;
-    overflow: hidden;
-    position: relative;
-  }
-  .rail-step .bar::after {
-    content: "";
-    position: absolute; inset: 0;
-    background: var(--ink);
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform .4s cubic-bezier(.4,0,.2,1);
-  }
-  .rail-step.done .bar::after { transform: scaleX(1); background: var(--ink); }
-  .rail-step.active .bar::after { transform: scaleX(1); background: var(--accent); }
-  .rail-step .meta {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 11px; font-weight: 600;
-    color: var(--ink-3);
-  }
-  .rail-step .meta .num {
+  .rail-step:hover { background: var(--surface); }
+  .rail-num {
     font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink-3);
     letter-spacing: 0;
   }
-  .rail-step.active .meta { color: var(--ink); }
-  .rail-step.done .meta { color: var(--ink-2); }
-  .rail-step .label { font-size: 14px; font-weight: 600; color: var(--ink-3); }
-  .rail-step.active .label, .rail-step.done .label { color: var(--ink); }
+  .rail-lbl {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+  }
+  .rail-sep {
+    flex: 1;
+    height: 1px;
+    background: var(--line-2);
+    min-width: 20px;
+    max-width: 60px;
+    margin: 0 4px;
+  }
+  .rail-step.active { background: color-mix(in oklab, var(--accent) 10%, transparent); }
+  .rail-step.active .rail-num { color: var(--accent-2); }
+  .rail-step.active .rail-lbl { color: var(--ink); font-weight: 700; }
+  .rail-step.done .rail-num { color: var(--good); }
+  .rail-step.done .rail-lbl { color: var(--ink-2); }
 
   /* Main */
   main {
