@@ -1,70 +1,107 @@
 // Screen 2 — Workout matching
 function ScreenMatch({ onNext, onBack, state, update }) {
-  const matches = state.matches || GARMIN_WORKOUTS.map(g => ({
-    garminId: g.id,
-    hevyId: g.hevyMatchId,
-    confidence: g.confidence,
-    locked: false,
-  }));
+  const [matchResult, setMatchResult] = useState(null);
+  const [matchError, setMatchError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [hevy_workouts, setHevyWorkouts] = useState(state.uploadResult?.hevyWorkouts || []);
 
-  const setMatch = (garminId, hevyId) => {
-    const next = matches.map(m => m.garminId === garminId ? { ...m, hevyId, confidence: hevyId ? 1 : 0 } : m);
-    update({ matches: next });
+  useEffect(() => {
+    setLoading(true);
+    setMatchError(null);
+    fetch('/api/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ garmin_workout_id: null, hevy_workout_id: null }),
+    })
+      .then(async r => {
+        const body = await r.json();
+        if (!r.ok) { setMatchError(body.error || 'Match failed.'); setLoading(false); return; }
+        setMatchResult(body);
+        update({ matchResult: body });
+        setLoading(false);
+      })
+      .catch(() => { setMatchError('Network error.'); setLoading(false); });
+  }, []);
+
+  const handleManualMatch = (hevy_idx) => {
+    setLoading(true);
+    setMatchError(null);
+    fetch('/api/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ garmin_workout_id: null, hevy_workout_id: hevy_idx }),
+    })
+      .then(async r => {
+        const body = await r.json();
+        if (!r.ok) { setMatchError(body.error || 'Match failed.'); setLoading(false); return; }
+        setMatchResult(body);
+        update({ matchResult: body });
+        setLoading(false);
+      })
+      .catch(() => { setMatchError('Network error.'); setLoading(false); });
   };
 
-  const findHevy = (id) => HEVY_WORKOUTS.find(h => h.id === id);
-  const findGarmin = (id) => GARMIN_WORKOUTS.find(g => g.id === id);
-
-  const matchedCount = matches.filter(m => m.hevyId).length;
+  const garmin = matchResult?.garmin;
+  const hevy = matchResult?.hevy;
+  const delta = matchResult?.delta_minutes;
+  const matched = !!matchResult && !matchError;
 
   return (
     <div>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <p className="h-eyebrow">STEP 02 / TIME-BASED MATCHING</p>
-          <h1 className="h-display" style={{ fontSize: 44 }}>We found <em>{matchedCount} matches.</em></h1>
-          <p className="h-sub">Auto-matched by start-time proximity (±60 minute window). Drag or click to remap if anything looks off.</p>
+          <h1 className="h-display" style={{ fontSize: 44 }}>
+            {loading ? <>Matching workouts&hellip;</> : matched ? <>We found <em>a match.</em></> : <><em>No match found.</em></>}
+          </h1>
+          <p className="h-sub">Auto-matched by start-time proximity (±30 minute window). Pick manually if anything looks off.</p>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <span className="chip neutral"><IconClock size={11}/> TOLERANCE · 60 MIN</span>
-          <button className="btn btn-ghost btn-sm"><IconRefresh size={14}/> Re-run</button>
+          <span className="chip neutral"><IconClock size={11}/> TOLERANCE · 30 MIN</span>
         </div>
       </div>
 
+      {/* Error banner */}
+      {matchError && (
+        <div className="chip bad" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, marginTop: 12 }}>
+          <IconWarn size={14} /><span style={{ fontSize: 13 }}>{matchError}</span>
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loading && <p style={{ color: 'var(--ink-3)', fontSize: 13, marginTop: 12 }}>Matching workouts&hellip;</p>}
+
       {/* Two-column matching board */}
       <div style={{ marginTop: 32, display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 0, alignItems: "stretch" }}>
-        <ColumnHeader title="Garmin" sub="From FIT files" icon={<IconWatch size={14}/>}/>
+        <ColumnHeader title="Garmin" sub="From uploaded FIT file" icon={<IconWatch size={14}/>}/>
         <div style={{ width: 24 }}></div>
-        <ColumnHeader title="Hevy" sub={`${HEVY_WORKOUTS.length} workouts · last 7 days`} icon={<IconDumbbell size={14}/>}/>
+        <ColumnHeader title="Hevy" sub={`${hevy_workouts.length} workouts from CSV`} icon={<IconDumbbell size={14}/>}/>
 
-        {GARMIN_WORKOUTS.map(g => {
-          const match = matches.find(m => m.garminId === g.id);
-          const h = match?.hevyId ? findHevy(match.hevyId) : null;
-          return (
-            <React.Fragment key={g.id}>
-              <GarminCard g={g} matched={!!h}/>
-              <Connector confidence={match?.confidence || 0} matched={!!h} />
-              <HevyPicker
-                selected={h}
-                workouts={HEVY_WORKOUTS}
-                garminStart={g.start}
-                onSelect={(hid) => setMatch(g.id, hid)}
-              />
-            </React.Fragment>
-          );
-        })}
+        {/* Single Garmin workout row */}
+        <GarminCard garmin={garmin} matched={matched}/>
+        <Connector confidence={matchResult ? Math.max(0, 1 - (delta || 0) / 30) : 0} matched={matched} delta={delta}/>
+        <HevyPicker
+          selected={hevy}
+          workouts={hevy_workouts}
+          onSelect={handleManualMatch}
+        />
       </div>
 
       {/* Summary bar */}
       <div style={{ marginTop: 28, padding: "14px 18px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div className="row" style={{ gap: 24 }}>
-          <Stat label="Matched" value={matchedCount} good/>
-          <Stat label="Skipped" value={GARMIN_WORKOUTS.length - matchedCount}/>
-          <Stat label="Avg confidence" value="97%"/>
+          <Stat label="Status" value={matched ? "Matched" : "Unmatched"} good={matched}/>
+          {matchResult && <Stat label="Delta" value={`${delta?.toFixed(1)} min`}/>}
+          {matchResult && <Stat label="Is forced" value={matchResult.is_forced ? "Yes" : "No"}/>}
         </div>
         <div className="row">
           <button className="btn btn-ghost" onClick={onBack}><IconBack size={14}/> Back</button>
-          <button className="btn btn-dark btn-lg" onClick={onNext}>
+          <button
+            className="btn btn-dark btn-lg"
+            disabled={!matchResult}
+            style={{ opacity: matchResult ? 1 : 0.4, cursor: matchResult ? 'pointer' : 'not-allowed' }}
+            onClick={() => onNext(matchResult)}
+          >
             Map exercises <IconArrow size={16}/>
           </button>
         </div>
@@ -94,22 +131,31 @@ function Stat({ label, value, good }) {
   );
 }
 
-function GarminCard({ g, matched }) {
+function GarminCard({ garmin, matched }) {
+  if (!garmin) {
+    return (
+      <div style={{ padding: "16px 0" }}>
+        <div className="card" style={{ padding: 18, opacity: 0.5 }}>
+          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Loading Garmin workout&hellip;</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ padding: "16px 0" }}>
       <div className="card" style={{ padding: 18, opacity: matched ? 1 : 0.6 }}>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)" }} className="mono uc">{fmtDate(g.start)}</div>
-            <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2 }}>{g.name}</div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)" }} className="mono uc">{fmtDate(garmin.start_time)}</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2 }}>Garmin Strength</div>
           </div>
-          <span className="chip neutral mono">{fmtTime(g.start)}</span>
+          <span className="chip neutral mono">{fmtTime(garmin.start_time)}</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-          <MiniStat icon={<IconClock size={12}/>} label="Duration" value={fmtDuration(g.durationSec)}/>
-          <MiniStat icon={<IconHeart size={12}/>} label="Avg HR" value={`${g.avgHr}`}/>
-          <MiniStat icon={<IconFlame size={12}/>} label="Kcal" value={g.calories}/>
-          <MiniStat icon={<IconDumbbell size={12}/>} label="Sets" value={g.sets || "—"} warn={g.sets === 0}/>
+          <MiniStat icon={<IconClock size={12}/>} label="Duration" value={fmtDuration(garmin.total_elapsed_time)}/>
+          <MiniStat icon={<IconHeart size={12}/>} label="Avg HR" value={garmin.avg_heart_rate ? `${garmin.avg_heart_rate}` : "—"}/>
+          <MiniStat icon={<IconFlame size={12}/>} label="Kcal" value={garmin.total_calories || "—"}/>
+          <MiniStat icon={<IconClock size={12}/>} label="End" value={fmtTime(garmin.end_time)}/>
         </div>
       </div>
     </div>
@@ -128,7 +174,7 @@ function MiniStat({ icon, label, value, warn }) {
   );
 }
 
-function Connector({ confidence, matched }) {
+function Connector({ confidence, matched, delta }) {
   const pct = Math.round(confidence * 100);
   return (
     <div style={{ padding: "16px 0", display: "grid", placeItems: "center", minWidth: 80 }}>
@@ -157,7 +203,7 @@ function Connector({ confidence, matched }) {
   );
 }
 
-function HevyPicker({ selected, workouts, garminStart, onSelect }) {
+function HevyPicker({ selected, workouts, onSelect }) {
   const [open, setOpen] = useState(false);
   if (selected) {
     return (
@@ -165,18 +211,28 @@ function HevyPicker({ selected, workouts, garminStart, onSelect }) {
         <div className="card" style={{ padding: 18, borderColor: "var(--ink)" }}>
           <div className="row" style={{ justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }} className="mono uc">{fmtDate(selected.start)}</div>
-              <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2 }}>{selected.name}</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)" }} className="mono uc">{fmtDate(selected.start_time)}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2 }}>{selected.title}</div>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => onSelect(null)}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)}>
               Change
             </button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-            <MiniStat icon={<IconClock size={12}/>} label="Start" value={fmtTime(selected.start)}/>
-            <MiniStat icon={<IconDumbbell size={12}/>} label="Exercises" value={selected.exerciseCount}/>
-            <MiniStat icon={<IconZap size={12}/>} label="Volume" value={`${(selected.totalVolume/1000).toFixed(1)}k`}/>
+            <MiniStat icon={<IconClock size={12}/>} label="Start" value={fmtTime(selected.start_time)}/>
+            <MiniStat icon={<IconDumbbell size={12}/>} label="Exercises" value={selected.exercise_count}/>
+            <MiniStat icon={<IconClock size={12}/>} label="End" value={fmtTime(selected.end_time)}/>
           </div>
+          {open && (
+            <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 4 }}>Pick a different Hevy workout:</div>
+              {workouts.map((w, i) => (
+                <button key={i} onClick={() => { onSelect(i); setOpen(false); }} className="btn btn-ghost btn-sm">
+                  {fmtDate(w.start_time)} — {w.title} ({w.exercise_count} exercises)
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -186,30 +242,25 @@ function HevyPicker({ selected, workouts, garminStart, onSelect }) {
       <div className="card" style={{ padding: 18, borderStyle: "dashed", borderColor: "var(--line-2)" }}>
         <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 10 }}>No auto-match. Pick manually:</div>
         <div style={{ display: "grid", gap: 6 }}>
-          {workouts.map(w => (
+          {workouts.map((w, i) => (
             <button
-              key={w.id}
-              onClick={() => onSelect(w.id)}
+              key={i}
+              onClick={() => onSelect(i)}
+              className="btn btn-ghost btn-sm"
               style={{
                 textAlign: "left",
                 padding: "10px 12px",
                 border: "1px solid var(--line)",
                 borderRadius: 8,
                 background: "var(--surface-2)",
-                cursor: "pointer",
-                font: "inherit",
-                color: "inherit",
               }}
             >
               <div className="row" style={{ justifyContent: "space-between" }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{w.name}</span>
-                <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{fmtDate(w.start)} · {fmtTime(w.start)}</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{w.title}</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{fmtDate(w.start_time)} · {fmtTime(w.start_time)}</span>
               </div>
             </button>
           ))}
-          <button className="btn btn-ghost btn-sm" style={{ justifyContent: "center", marginTop: 4 }}>
-            Skip this workout
-          </button>
         </div>
       </div>
     </div>
