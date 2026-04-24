@@ -1,14 +1,370 @@
+import os
+import sys
 import threading
+import tempfile
+import secrets
+import pathlib
+import zoneinfo
 import webbrowser
-from flask import Flask, render_template
+from werkzeug.utils import secure_filename
+from flask import Flask, render_template, request, jsonify, session, send_file
 
 app = Flask(__name__)
 
+_secret = os.environ.get("SECRET_KEY")
+if not _secret:
+    print(
+        "WARNING: SECRET_KEY not set in environment — using random key. "
+        "Flask session cookies will be invalidated on restart.",
+        file=sys.stderr,
+    )
+    _secret = secrets.token_hex(32)
+app.secret_key = _secret
+
+import fit_parser
+import hevy_parser
+import matcher
+import mapper
+import fit_generator
+import database
+
+database.init_db()
+
+# ---------------------------------------------------------------------------
+# Static data
+# ---------------------------------------------------------------------------
+
+_COMMON_TIMEZONES = [
+    "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "America/Phoenix", "Europe/London", "Europe/Paris", "Europe/Berlin",
+    "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney",
+]
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
+
+@app.route("/api/timezones")
+def api_timezones():
+    all_tz = sorted(zoneinfo.available_timezones())
+    ordered = _COMMON_TIMEZONES + [tz for tz in all_tz if tz not in set(_COMMON_TIMEZONES)]
+    return jsonify(ordered)
+
+
+@app.route("/api/exercises")
+def api_exercises():
+    result = [
+        {
+            "exercise_name": ex.exercise_name,
+            "exercise_category": ex.exercise_category,
+            "exercise_enum_int": ex.exercise_enum_int,
+            "exercise_category_enum_int": ex.exercise_category_enum_int,
+        }
+        for ex in mapper._GARMIN_EXERCISES
+    ]
+    return jsonify(result)
+
+
+@app.route("/api/upload", methods=["POST"])
+def api_upload():
+    if "fit_file" not in request.files:
+        return jsonify({"error": "No FIT file provided.", "detail": "fit_file field missing"}), 400
+    if "hevy_csv" not in request.files:
+        return jsonify({"error": "No Hevy CSV provided.", "detail": "hevy_csv field missing"}), 400
+
+    fit_file = request.files["fit_file"]
+    hevy_file = request.files["hevy_csv"]
+    timezone_str = request.form.get("timezone", "").strip()
+
+    if not timezone_str:
+        return jsonify({"error": "No timezone provided.", "detail": "timezone field missing"}), 400
+
+    try:
+        zoneinfo.ZoneInfo(timezone_str)
+    except (zoneinfo.ZoneInfoNotFoundError, KeyError):
+        return jsonify({"error": f"Invalid timezone '{timezone_str}'.", "detail": "Must be a valid IANA timezone string"}), 400
+
+    tmp_dir = tempfile.mkdtemp()
+    fit_filename = secure_filename(fit_file.filename or "upload.fit")
+    hevy_filename = secure_filename(hevy_file.filename or "upload.csv")
+    tmp_fit_path = os.path.join(tmp_dir, fit_filename)
+    tmp_hevy_path = os.path.join(tmp_dir, hevy_filename)
+    fit_file.save(tmp_fit_path)
+    hevy_file.save(tmp_hevy_path)
+
+    # Validate FIT file
+    try:
+        fit_workout = fit_parser.parse_fit_file(tmp_fit_path)
+    except Exception as exc:
+        err_str = str(exc).lower()
+        if "not a fit file" in err_str or "magic" in err_str or "header" in err_str:
+            msg = "That doesn't look like a FIT file. Download the original from Garmin Connect → Activity → ⋯ → Export original."
+        else:
+            msg = "FIT file failed to parse. Try re-exporting from Garmin Connect."
+        return jsonify({"error": msg, "detail": str(exc)}), 400
+
+    # Validate Hevy CSV
+    try:
+        hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy_path)
+        if not hevy_workouts:
+            raise ValueError("CSV parsed but contains no workouts")
+    except Exception as exc:
+        return jsonify({
+            "error": "This doesn't look like a Hevy export. Go to Hevy Settings → Export and try again.",
+            "detail": str(exc),
+        }), 400
+
+    # Store minimal state in session (only string keys — D-24)
+    session["fit_path"] = tmp_fit_path
+    session["hevy_csv_path"] = tmp_hevy_path
+    session["timezone"] = timezone_str
+
+    # Serialize FitWorkout manually (no dataclasses.asdict — datetime fields)
+    def dt_iso(dt):
+        return dt.isoformat() if dt is not None else None
+
+    fit_json = {
+        "start_time": dt_iso(fit_workout.start_time),
+        "end_time": dt_iso(fit_workout.end_time),
+        "total_calories": fit_workout.total_calories,
+        "total_elapsed_time": fit_workout.total_elapsed_time,
+        "device_serial": fit_workout.device_serial,
+        "avg_heart_rate": fit_workout.avg_heart_rate,
+        "max_heart_rate": fit_workout.max_heart_rate,
+        "hr_sample_count": len(fit_workout.heart_rate_samples),
+        "gps_point_count": len(fit_workout.gps_track),
+    }
+
+    hevy_json = [
+        {
+            "title": w.title,
+            "start_time": dt_iso(w.start_time),
+            "end_time": dt_iso(w.end_time),
+            "description": w.description,
+            "exercise_count": len(w.exercises),
+            "skipped_cardio": w.skipped_cardio,
+            "exercises": [
+                {
+                    "title": ex.title,
+                    "set_count": len(ex.sets),
+                }
+                for ex in w.exercises
+            ],
+        }
+        for w in hevy_workouts
+    ]
+
+    return jsonify({"fitWorkout": fit_json, "hevyWorkouts": hevy_json})
+
+
+@app.route("/api/match", methods=["POST"])
+def api_match():
+    fit_path = session.get("fit_path")
+    hevy_csv_path = session.get("hevy_csv_path")
+    timezone_str = session.get("timezone")
+    if not fit_path or not hevy_csv_path or not timezone_str:
+        return jsonify({"error": "Session expired. Please re-upload your files.", "detail": "session missing"}), 400
+
+    try:
+        fit_workout = fit_parser.parse_fit_file(fit_path)
+        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path)
+    except Exception as exc:
+        return jsonify({"error": "Failed to re-parse uploaded files.", "detail": str(exc)}), 400
+
+    data = request.get_json(silent=True) or {}
+    hevy_workout_id = data.get("hevy_workout_id")
+
+    if hevy_workout_id is not None:
+        # Manual override: find hevy workout by index
+        idx = int(hevy_workout_id) if str(hevy_workout_id).isdigit() else 0
+        if idx < 0 or idx >= len(hevy_workouts):
+            return jsonify({"error": f"Invalid hevy_workout_id: {hevy_workout_id}", "detail": "out of range"}), 400
+        match = matcher.force_match(fit_workout, hevy_workouts[idx])
+    else:
+        match = matcher.match_workouts(fit_workout, hevy_workouts, timezone_str)
+        if match is None:
+            start_str = fit_workout.start_time.isoformat() if fit_workout.start_time else "unknown"
+            return jsonify({
+                "error": f"No Hevy workout found within 30 minutes of {start_str}. Check your timezone selection or use manual match.",
+                "detail": "match_workouts returned None",
+            }), 400
+
+    def dt_iso(dt):
+        return dt.isoformat() if dt is not None else None
+
+    hevy_idx = hevy_workouts.index(match.hevy_workout) if match.hevy_workout in hevy_workouts else 0
+
+    return jsonify({
+        "delta_minutes": match.delta_minutes,
+        "is_forced": match.is_forced,
+        "hevy_workout_index": hevy_idx,
+        "garmin": {
+            "start_time": dt_iso(fit_workout.start_time),
+            "end_time": dt_iso(fit_workout.end_time),
+            "total_calories": fit_workout.total_calories,
+            "total_elapsed_time": fit_workout.total_elapsed_time,
+            "avg_heart_rate": fit_workout.avg_heart_rate,
+        },
+        "hevy": {
+            "title": match.hevy_workout.title,
+            "start_time": dt_iso(match.hevy_workout.start_time),
+            "end_time": dt_iso(match.hevy_workout.end_time),
+            "exercise_count": len(match.hevy_workout.exercises),
+            "skipped_cardio": match.hevy_workout.skipped_cardio,
+        },
+    })
+
+
+@app.route("/api/map/suggest", methods=["POST"])
+def api_map_suggest():
+    data = request.get_json(silent=True) or {}
+    hevy_name = data.get("hevy_exercise_name", "").strip()
+    if not hevy_name:
+        return jsonify({"error": "hevy_exercise_name is required.", "detail": "empty string"}), 400
+    suggestions = mapper.suggest_mapping(hevy_name, limit=5)
+    return jsonify({
+        "suggestions": [
+            {"id": ex.exercise_name, "label": ex.exercise_name.replace("_", " ").title(), "score": round(score, 2)}
+            for ex, score in suggestions
+        ]
+    })
+
+
+@app.route("/api/map/confirm", methods=["POST"])
+def api_map_confirm():
+    data = request.get_json(silent=True) or {}
+    hevy_name = data.get("hevy_name", "").strip()
+    garmin_name = data.get("garmin_name", "").strip()
+    if not hevy_name or not garmin_name:
+        return jsonify({"error": "hevy_name and garmin_name are required.", "detail": "empty field"}), 400
+    garmin_ex = next((e for e in mapper._GARMIN_EXERCISES if e.exercise_name == garmin_name), None)
+    if garmin_ex is None:
+        return jsonify({"error": f"Unknown Garmin exercise: {garmin_name}", "detail": "not in garmin_exercises.csv"}), 400
+    mapper.confirm_mapping(hevy_name, garmin_ex)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/preview", methods=["POST"])
+def api_preview():
+    fit_path = session.get("fit_path")
+    hevy_csv_path = session.get("hevy_csv_path")
+    timezone_str = session.get("timezone")
+    if not fit_path or not hevy_csv_path or not timezone_str:
+        return jsonify({"error": "Session expired. Please re-upload your files.", "detail": "session missing"}), 400
+
+    data = request.get_json(silent=True) or {}
+    hevy_idx = int(data.get("hevy_workout_index", 0))
+
+    try:
+        fit_workout = fit_parser.parse_fit_file(fit_path)
+        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path)
+    except Exception as exc:
+        return jsonify({"error": "Failed to re-parse uploaded files.", "detail": str(exc)}), 400
+
+    if hevy_idx >= len(hevy_workouts):
+        hevy_idx = 0
+    match = matcher.force_match(fit_workout, hevy_workouts[hevy_idx])
+
+    try:
+        preview = fit_generator.build_preview(match, timezone_str, fit_path)
+    except Exception as exc:
+        return jsonify({"error": "Failed to build preview.", "detail": str(exc)}), 500
+
+    def dt_iso(dt):
+        return dt.isoformat() if dt is not None else None
+
+    # Downsample HR to max 720 points
+    hr_samples = fit_workout.heart_rate_samples
+    if len(hr_samples) > 720:
+        step = len(hr_samples) / 720
+        hr_samples = [hr_samples[int(i * step)] for i in range(720)]
+    hr_json = [{"t": s.timestamp.isoformat(), "hr": s.heart_rate} for s in hr_samples]
+
+    before_sets = [
+        {
+            "start_time": dt_iso(s.start_time),
+            "reps": s.reps,
+            "weight_kg": s.weight_kg,
+            "duration_s": s.duration_s,
+            "category_enum_int": s.category_enum_int,
+            "exercise_enum_int": s.exercise_enum_int,
+        }
+        for s in preview.before_sets
+    ]
+    after_sets = [
+        {
+            "start_time": dt_iso(s.start_time),
+            "hevy_exercise_name": s.hevy_exercise_name,
+            "garmin_exercise_name": s.garmin_exercise.exercise_name,
+            "reps": s.reps,
+            "weight_kg": s.weight_kg,
+        }
+        for s in preview.after_sets
+    ]
+    return jsonify({
+        "biometricSummary": {
+            "total_elapsed_time": preview.biometric_summary.total_elapsed_time,
+            "total_calories": preview.biometric_summary.total_calories,
+            "avg_heart_rate": preview.biometric_summary.avg_heart_rate,
+            "max_heart_rate": preview.biometric_summary.max_heart_rate,
+        },
+        "heartRateSamples": hr_json,
+        "beforeSets": before_sets,
+        "afterSets": after_sets,
+    })
+
+
+@app.route("/api/export", methods=["POST"])
+def api_export():
+    fit_path = session.get("fit_path")
+    hevy_csv_path = session.get("hevy_csv_path")
+    timezone_str = session.get("timezone")
+    if not fit_path or not hevy_csv_path or not timezone_str:
+        return jsonify({"error": "Session expired. Please re-upload your files.", "detail": "session missing"}), 400
+
+    data = request.get_json(silent=True) or {}
+    hevy_idx = int(data.get("hevy_workout_index", 0))
+
+    try:
+        fit_workout = fit_parser.parse_fit_file(fit_path)
+        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path)
+    except Exception as exc:
+        return jsonify({"error": "Failed to re-parse uploaded files.", "detail": str(exc)}), 400
+
+    if hevy_idx >= len(hevy_workouts):
+        hevy_idx = 0
+    match = matcher.force_match(fit_workout, hevy_workouts[hevy_idx])
+
+    out_hex = secrets.token_hex(8)
+    project_root = pathlib.Path(__file__).parent.resolve()
+    out_path = str(project_root / "output" / f"merged-{out_hex}.fit")
+
+    try:
+        result_path = fit_generator.build_merged_fit(match, timezone_str, fit_path, out_path)
+    except ValueError as exc:
+        if "crc" in str(exc).lower() or "fitparse" in str(exc).lower() or "fit-tool" in str(exc).lower():
+            return jsonify({"error": "Merged FIT failed integrity check. This is a bug — please report it.", "detail": str(exc)}), 500
+        return jsonify({"error": "Export failed.", "detail": str(exc)}), 500
+    except Exception as exc:
+        return jsonify({"error": "Export failed.", "detail": str(exc)}), 500
+
+    return send_file(
+        result_path,
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name="merged.fit",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Startup
+# ---------------------------------------------------------------------------
 
 def _open_browser():
     webbrowser.open("http://localhost:5000")
