@@ -1,13 +1,29 @@
 // Screen 1 — Upload & connect
 function ScreenUpload({ onNext, state, update }) {
   const fitInput = useRef(null);
+  const hevyInput = useRef(null);
+
+  const [timezones, setTimezones] = useState([]);
+  const [timezone, setTimezone] = useState('');
+  const [tzFilter, setTzFilter] = useState('');
+  const [uploadError, setUploadError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Fetch timezone list on mount
+  useEffect(() => {
+    fetch('/api/timezones')
+      .then(r => r.json())
+      .then(data => setTimezones(data))
+      .catch(() => setTimezones([]));
+  }, []);
 
   const addFiles = (files) => {
     const newFiles = Array.from(files).map(f => ({
       id: Math.random().toString(36).slice(2),
       name: f.name || "Strength_Training_2026-04-18.fit",
       size: f.size || 184320,
-      date: "Apr 18, 2026 · 06:42",
+      date: fmtDate(new Date().toISOString()),
+      _file: f,  // store original File for FormData
     }));
     update({ fitFiles: [...state.fitFiles, ...newFiles] });
   };
@@ -18,16 +34,48 @@ function ScreenUpload({ onNext, state, update }) {
     addFiles(e.dataTransfer.files);
   };
 
-  // Demo seed files
+  // Demo seed files — no real File objects; upload will show error if attempted
   const seed = () => {
     update({ fitFiles: [
-      { id: "s1", name: "2026-04-18-064200-STRENGTH.fit", size: 184320, date: "Apr 18, 2026 · 06:42" },
-      { id: "s2", name: "2026-04-16-181200-STRENGTH.fit", size: 172096, date: "Apr 16, 2026 · 18:12" },
-      { id: "s3", name: "2026-04-15-071000-CARDIO.fit",   size: 92160,  date: "Apr 15, 2026 · 07:10" },
+      { id: "s1", name: "2026-04-18-064200-STRENGTH.fit", size: 184320, date: "Apr 18, 2026", _file: null },
+      { id: "s2", name: "2026-04-16-181200-STRENGTH.fit", size: 172096, date: "Apr 16, 2026", _file: null },
+      { id: "s3", name: "2026-04-15-071000-CARDIO.fit",   size: 92160,  date: "Apr 15, 2026", _file: null },
     ]});
   };
 
-  const canContinue = state.fitFiles.length > 0 && state.hevyMode;
+  const canContinue = state.fitFiles.length > 0 && state.hevyMode && timezone && !uploading;
+
+  const handleContinue = async () => {
+    setUploadError(null);
+
+    // Guard against demo seed data (no real File objects)
+    if (!state.fitFiles[0]._file) {
+      setUploadError('Demo data cannot be uploaded — select real files.');
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('fit_file', state.fitFiles[0]._file);
+    if (state.hevyFile) formData.append('hevy_csv', state.hevyFile);
+    formData.append('timezone', timezone);
+
+    try {
+      const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setUploadError(body.error || 'Upload failed.');
+        setUploading(false);
+        return;
+      }
+      update({ timezone, uploadResult: body });
+      onNext(body);
+    } catch (err) {
+      setUploadError('Network error. Is the app running?');
+      setUploading(false);
+    }
+    setUploading(false);
+  };
 
   return (
     <div>
@@ -137,7 +185,7 @@ function ScreenUpload({ onNext, state, update }) {
               onClick={() => update({ hevyMode: "file" })}
               icon={<IconFile size={16}/>}
               title="Upload export file"
-              sub="CSV or JSON from Hevy Settings"
+              sub="CSV from Hevy Settings → Export"
             />
           </div>
 
@@ -157,8 +205,21 @@ function ScreenUpload({ onNext, state, update }) {
 
           {state.hevyMode === "file" && (
             <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px dashed var(--line-2)", textAlign: "center" }}>
+              <input ref={hevyInput} type="file" accept=".csv" style={{ display: "none" }}
+                onChange={e => { if (e.target.files[0]) update({ hevyFile: e.target.files[0] }); }} />
               <IconUpload size={18}/>
-              <div style={{ fontSize: 13, marginTop: 4 }}>Drop hevy-export.json</div>
+              {state.hevyFile ? (
+                <div style={{ fontSize: 13, marginTop: 4, color: "var(--good)" }}>
+                  <IconCheck size={12}/> {state.hevyFile.name}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, marginTop: 4 }}>
+                  Drop hevy-export.csv
+                  <div style={{ marginTop: 8 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); hevyInput.current?.click(); }}>Browse files</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -175,18 +236,48 @@ function ScreenUpload({ onNext, state, update }) {
         </div>
       </div>
 
-      <div className="row" style={{ marginTop: 32, justifyContent: "space-between" }}>
+      {/* Timezone selector */}
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>TIMEZONE</div>
+        <input
+          type="text"
+          placeholder="Filter timezones…"
+          value={tzFilter}
+          onChange={e => setTzFilter(e.target.value)}
+          style={{ width: '100%', marginBottom: 4, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, boxSizing: 'border-box' }}
+        />
+        <select
+          value={timezone}
+          onChange={e => setTimezone(e.target.value)}
+          size={5}
+          style={{ width: '100%', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, padding: 4 }}
+        >
+          {timezones.filter(tz => !tzFilter || tz.toLowerCase().includes(tzFilter.toLowerCase())).map(tz => (
+            <option key={tz} value={tz}>{tz}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="row" style={{ marginTop: 32, justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div className="row" style={{ color: "var(--ink-3)", fontSize: 13 }}>
           <IconInfo size={14}/> Your last sync was <strong style={{ color: "var(--ink-2)" }}>2 days ago</strong> — 4 workouts merged successfully.
         </div>
-        <button
-          className="btn btn-dark btn-lg"
-          onClick={onNext}
-          disabled={!canContinue}
-          style={{ opacity: canContinue ? 1 : 0.4, cursor: canContinue ? "pointer" : "not-allowed" }}
-        >
-          Continue to matching <IconArrow size={16}/>
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <button
+            className="btn btn-dark btn-lg"
+            disabled={!canContinue}
+            style={{ opacity: canContinue ? 1 : 0.4, cursor: canContinue ? "pointer" : "not-allowed" }}
+            onClick={handleContinue}
+          >
+            {uploading ? 'Uploading…' : 'Continue to matching'} {!uploading && <IconArrow size={16}/>}
+          </button>
+          {uploadError && (
+            <div className="chip bad" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, width: 'fit-content' }}>
+              <IconWarn size={14}/>
+              <span style={{ fontSize: 13 }}>{uploadError}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
