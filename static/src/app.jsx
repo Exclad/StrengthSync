@@ -35,9 +35,13 @@ function App() {
   const [appState, setAppState] = useState({
     fitFiles: [],
     hevyMode: null,
+    hevyFile: null,
     dragging: false,
-    matches: null,
+    timezone: '',
+    uploadResult: null,
+    matchResult: null,
     exercises: null,
+    previewResult: null,
   });
   const update = (patch) => setAppState(s => ({ ...s, ...patch }));
 
@@ -47,7 +51,7 @@ function App() {
     localStorage.setItem("ss-theme", theme);
   }, [theme]);
 
-  // Persist step
+  // Persist step (dev deep-link convenience — keep existing step guards)
   useEffect(() => {
     const saved = localStorage.getItem("ss-step");
     if (saved !== null && Number(saved) >= 0 && Number(saved) < 5) {
@@ -93,18 +97,44 @@ function App() {
     window.parent.postMessage({ type: "__edit_mode_set_keys", edits: patch }, "*");
   };
 
-  const next = () => setStep(s => Math.min(4, s + 1));
   const back = () => setStep(s => Math.max(0, s - 1));
+
+  const handleRestart = () => {
+    setAppState({
+      fitFiles: [], hevyMode: null, hevyFile: null, dragging: false,
+      timezone: '', uploadResult: null, matchResult: null, exercises: null, previewResult: null,
+    });
+    setStep(0);
+    localStorage.removeItem('ss-step');
+  };
 
   return (
     <>
       <Shell step={step} setStep={setStep} theme={theme} setTheme={setTheme} tweaksOn={tweaksOn}>
         <div data-screen-label={`0${step+1} ${["Upload","Match","Map","Preview","Export"][step]}`}>
-          {step === 0 && <ScreenUpload onNext={next} state={appState} update={update}/>}
-          {step === 1 && <ScreenMatch onNext={next} onBack={back} state={appState} update={update}/>}
-          {step === 2 && <ScreenMap onNext={next} onBack={back} state={appState} update={update}/>}
-          {step === 3 && <ScreenPreview onNext={next} onBack={back} state={appState}/>}
-          {step === 4 && <ScreenDone onRestart={() => { setStep(0); setAppState({ fitFiles: [], hevyMode: null, dragging: false, matches: null, exercises: null }); }}/>}
+          {step === 0 && <ScreenUpload
+            onNext={(data) => { update({ uploadResult: data }); setStep(1); }}
+            state={appState}
+            update={update}
+          />}
+          {step === 1 && <ScreenMatch
+            onNext={(data) => { update({ matchResult: data }); setStep(2); }}
+            onBack={back}
+            state={appState}
+            update={update}
+          />}
+          {step === 2 && <ScreenMap
+            onNext={(data) => { update({ exercises: data.exercises }); setStep(3); }}
+            onBack={back}
+            state={appState}
+            update={update}
+          />}
+          {step === 3 && <ScreenPreview
+            onNext={(data) => { update({ previewResult: data }); setStep(4); }}
+            onBack={back}
+            state={appState}
+          />}
+          {step === 4 && <ScreenDone state={appState} update={update} onRestart={handleRestart}/>}
         </div>
       </Shell>
 
