@@ -6,9 +6,23 @@ function ScreenUpload({ onNext, state, update, setPage }) {
   const [timezones, setTimezones] = useState([]);
   const [timezone, setTimezone] = useState('');
   const [tzFilter, setTzFilter] = useState('');
+  const [tzOpen, setTzOpen] = useState(false);
   const [tzSource, setTzSource] = useState(null); // null | 'auto' | 'saved'
   const [uploadError, setUploadError] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const tzWrapRef = useRef(null);
+
+  // Close timezone dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (tzWrapRef.current && !tzWrapRef.current.contains(e.target)) {
+        setTzOpen(false);
+        setTzFilter('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Fetch timezone list on mount, then auto-detect or restore saved timezone
   useEffect(() => {
@@ -219,39 +233,98 @@ function ScreenUpload({ onNext, state, update, setPage }) {
         </div>
       </div>
 
-      {/* Timezone selector */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>TIMEZONE</div>
-        <input
-          type="text"
-          placeholder="Filter timezones…"
-          value={tzFilter}
-          onChange={e => setTzFilter(e.target.value)}
-          style={{ width: '100%', marginBottom: 4, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, boxSizing: 'border-box' }}
-        />
-        <select
-          value={timezone}
-          onChange={e => setTimezone(e.target.value)}
-          size={5}
-          style={{ width: '100%', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, padding: 4 }}
+      {/* Timezone selector — custom combobox */}
+      <div style={{ marginTop: 16, position: 'relative' }} ref={tzWrapRef}>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Timezone</div>
+
+        {/* Trigger */}
+        <button
+          onClick={() => { setTzOpen(o => !o); setTzFilter(''); }}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '11px 14px', borderRadius: 10, cursor: 'pointer', font: 'inherit',
+            border: `1px solid ${tzOpen ? 'var(--accent-2)' : 'var(--line)'}`,
+            background: tzOpen ? 'var(--surface-2)' : 'var(--surface)',
+            color: timezone ? 'var(--ink)' : 'var(--ink-3)',
+            boxSizing: 'border-box', transition: 'border-color .15s, background .15s',
+            boxShadow: tzOpen ? '0 0 0 3px color-mix(in oklab, var(--accent-2) 18%, transparent)' : 'none',
+          }}
         >
-          {timezones.filter(tz => !tzFilter || tz.toLowerCase().includes(tzFilter.toLowerCase())).map(tz => (
-            <option key={tz} value={tz}>{tz}</option>
-          ))}
-        </select>
-        {timezone && (
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+            {timezone || 'Select timezone…'}
+          </span>
+          <IconChevDown size={14} style={{ color: 'var(--ink-3)', flexShrink: 0, transform: tzOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}/>
+        </button>
+
+        {/* Dropdown panel */}
+        {tzOpen && (
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 200,
+            borderRadius: 12, border: '1px solid var(--line)',
+            background: 'var(--surface)', boxShadow: '0 8px 32px rgba(0,0,0,0.16)',
+            overflow: 'hidden',
+          }}>
+            {/* Search row */}
+            <div className="row" style={{ gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
+              <IconSearch size={14} style={{ color: 'var(--ink-3)', flexShrink: 0 }}/>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search timezones…"
+                value={tzFilter}
+                onChange={e => setTzFilter(e.target.value)}
+                style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', font: 'inherit', color: 'var(--ink)', fontSize: 13 }}
+              />
+              {tzFilter && (
+                <button onClick={() => setTzFilter('')} style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 16, lineHeight: 1, padding: 0 }}>×</button>
+              )}
+            </div>
+            {/* List */}
+            <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+              {timezones
+                .filter(tz => !tzFilter || tz.toLowerCase().includes(tzFilter.toLowerCase()))
+                .map(tz => {
+                  const selected = tz === timezone;
+                  return (
+                    <button
+                      key={tz}
+                      onClick={() => { setTimezone(tz); setTzOpen(false); setTzFilter(''); setTzSource('saved'); localStorage.setItem('ss-timezone', tz); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        width: '100%', textAlign: 'left', padding: '9px 14px',
+                        border: 'none', cursor: 'pointer', font: 'inherit',
+                        fontFamily: 'var(--font-mono)', fontSize: 13,
+                        background: selected ? 'color-mix(in oklab, var(--accent-2) 10%, var(--surface))' : 'transparent',
+                        color: selected ? 'var(--ink)' : 'var(--ink-2)',
+                      }}
+                    >
+                      <span style={{ width: 14, flexShrink: 0 }}>
+                        {selected && <IconCheck size={12} style={{ color: 'var(--good)' }}/>}
+                      </span>
+                      {tz}
+                    </button>
+                  );
+                })
+              }
+              {timezones.filter(tz => !tzFilter || tz.toLowerCase().includes(tzFilter.toLowerCase())).length === 0 && (
+                <div style={{ padding: '20px 14px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>No timezones match "{tzFilter}"</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Status note */}
+        {timezone && !tzOpen && (
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <IconCheck size={12} style={{ color: 'var(--good)', flexShrink: 0 }}/>
             <span style={{ fontSize: 12, color: 'var(--good)', fontFamily: 'var(--font-mono)' }}>{timezone}</span>
             {tzSource && (
               <span style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 · {tzSource === 'auto' ? 'Auto-detected from your browser' : 'Saved preference'}
                 {setPage && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: 11, padding: '3px 8px', marginLeft: 4 }}
-                    onClick={() => setPage('settings')}
-                  >Change in Settings</button>
+                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '3px 8px', marginLeft: 4 }} onClick={() => setPage('settings')}>
+                    Change in Settings
+                  </button>
                 )}
               </span>
             )}
