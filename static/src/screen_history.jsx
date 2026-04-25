@@ -42,13 +42,19 @@ function ScreenHistory({ onBack }) {
       )}
 
       {!loading && files.length === 0 && (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <IconHistory size={28} style={{ color: 'var(--ink-3)', marginBottom: 12 }}/>
-          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>No exports yet</div>
-          <div style={{ color: 'var(--ink-3)', fontSize: 14 }}>
-            Merged FIT files appear here after you complete the export step.
-            They are saved in the <span className="mono">output/</span> folder.
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 32px', textAlign: 'center', gap: 8 }}>
+          <IconHistory size={32} style={{ color: 'var(--ink-4)', marginBottom: 16 }}/>
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>No merged files yet</div>
+          <div style={{ color: 'var(--ink-3)', fontSize: 13, lineHeight: 1.5, maxWidth: 420 }}>
+            Merged FIT files appear here after you complete a sync. Each file is saved locally in the output/ folder and ready to upload to Garmin Connect.
           </div>
+          <button
+            className="btn btn-dark btn-sm"
+            style={{ marginTop: 16 }}
+            onClick={() => onBack()}
+          >
+            <IconArrow size={13}/> Start a sync
+          </button>
         </div>
       )}
 

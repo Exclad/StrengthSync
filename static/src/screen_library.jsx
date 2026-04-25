@@ -87,13 +87,19 @@ function ScreenLibrary({ onBack }) {
       )}
 
       {!loading && mappings.length === 0 && (
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <IconDumbbell size={28} style={{ color: 'var(--ink-3)', marginBottom: 12 }}/>
-          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>No mappings saved yet</div>
-          <div style={{ color: 'var(--ink-3)', fontSize: 14 }}>
-            Mappings are saved automatically when you confirm exercises in the Map step.
-            They persist across sessions so future workouts auto-map faster.
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 32px', textAlign: 'center', gap: 8 }}>
+          <IconDumbbell size={32} style={{ color: 'var(--ink-4)', marginBottom: 16 }}/>
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>No exercise mappings saved yet</div>
+          <div style={{ color: 'var(--ink-3)', fontSize: 13, lineHeight: 1.5, maxWidth: 420 }}>
+            Mappings are saved automatically when you confirm exercises in the Map step. They carry over to every future sync so you won't need to re-map the same exercises.
           </div>
+          <button
+            className="btn btn-dark btn-sm"
+            style={{ marginTop: 16 }}
+            onClick={() => onBack()}
+          >
+            <IconArrow size={13}/> Start a sync
+          </button>
         </div>
       )}
 
