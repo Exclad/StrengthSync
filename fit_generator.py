@@ -805,6 +805,23 @@ def build_merged_fit(
       1. Walk the Garmin FIT binary with _walk_fit_binary().
          - Copies all non-mesg-225/227 records verbatim (biometric pass-through).
          - Extracts per-set start_time values from mesg 225 field 6 (D-03).
+
+    Intensity-minutes preservation (verified 2026-04-25):
+      The session message (global_num 18) is part of the verbatim pass-through —
+      its bytes are copied unchanged from the original. Every session field is
+      preserved bit-for-bit, including the proprietary uint values commonly
+      suspected of carrying intensity-minutes data:
+        - field 168 (training_load_peak, sint32, scale 65536)
+        - fields 178, 215, 216 (Garmin-proprietary, unmapped in the FIT SDK)
+        - field 196 (metabolic_calories)
+      Garmin Connect does NOT read intensity minutes from a stored FIT field;
+      no `intensity_minutes` field exists in the FIT SDK profile. Garmin Connect
+      derives the metric server-side from `record` HR samples + `zones_target`
+      (max_heart_rate, threshold_heart_rate). Both are preserved verbatim here.
+      The reason intensity minutes do not appear on manually-uploaded merged
+      files is a Garmin Connect platform behavior — manual uploads are not
+      credited toward intensity-minute totals regardless of file content. This
+      is a known platform limitation, not a file-generation defect.
       2. Assign timestamps to Hevy sets using _assign_timestamps():
          - First min(N_garmin, N_hevy) sets get Garmin timestamps (D-03).
          - Overflow sets get linearly distributed timestamps (D-04).
