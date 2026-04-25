@@ -80,7 +80,7 @@ function ScreenMap({ onNext, onBack, state, update }) {
       body: JSON.stringify({ hevy_name: ex.hevy, garmin_name: suggestion.id }),
     })
       .then(async r => {
-        if (!r.ok) { const b = await r.json(); setMapError(b.error || 'Confirm failed.'); return; }
+        if (!r.ok) { const b = await r.json(); setMapError(b.error || "Couldn't save that mapping. Check the app is still running and try again."); return; }
         setExercises(prev => prev.map(e =>
           e.id === exId
             ? { ...e, status: 'mapped', confidence: 1.0, garmin: suggestion.id, garminLabel: suggestion.label }
@@ -92,7 +92,7 @@ function ScreenMap({ onNext, onBack, state, update }) {
         const unresolvedIds = exercises.filter(e => (e.status === 'needs-review' || e.status === 'unmapped') && e.id !== exId).map(e => e.id);
         if (unresolvedIds.length > 0) setSelectedId(unresolvedIds[0]);
       })
-      .catch(() => setMapError('Network error.'));
+      .catch(() => setMapError("Network error — couldn't reach the app. Refresh and try again if the problem persists."));
   };
 
   const handleSkip = (exId) => {
@@ -286,7 +286,7 @@ function ScreenMap({ onNext, onBack, state, update }) {
         <button className="btn btn-ghost" onClick={onBack}><IconBack size={14}/> Back</button>
         <div className="row" style={{ gap: 10 }}>
           {!canExport && (
-            <span className="chip warn" style={{ marginRight: 8 }}>{unresolvedCount} UNRESOLVED</span>
+            <span className={`chip ${unresolvedCount > 0 ? 'bad' : 'warn'}`} style={{ marginRight: 8 }}>{unresolvedCount} NEED ACTION</span>
           )}
           <button
             className="btn btn-dark btn-lg"
@@ -451,6 +451,24 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
       {/* Suggestions for non-resolved, non-cardio */}
       {!isResolved && (
         <div style={{ padding: "20px 24px" }}>
+          {exercise.status === 'unmapped' && (
+            <div style={{
+              background: 'color-mix(in oklab, var(--warn) 8%, var(--surface))',
+              border: '1px solid color-mix(in oklab, var(--warn) 25%, var(--line))',
+              borderRadius: 10,
+              padding: '16px 20px',
+              marginBottom: 16,
+            }}>
+              <div className="row" style={{ gap: 8, marginBottom: 6 }}>
+                <IconWarn size={14} style={{ color: 'var(--warn)', flexShrink: 0 }}/>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>No automatic match found</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                Search for a Garmin exercise name below, or skip to use Garmin's original data.
+              </div>
+            </div>
+          )}
+
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
             <div className="row" style={{ gap: 8 }}>
               <IconSparkle size={14} style={{ color: "var(--accent-2)" }}/>
@@ -463,7 +481,7 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
           </div>
 
           {/* Inline search */}
-          {showSearch && (
+          {(showSearch || exercise.status === 'unmapped') && (
             <div style={{ marginBottom: 12 }}>
               <input
                 value={searchQuery}
@@ -483,6 +501,12 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
                   ))
                 }
               </div>
+            </div>
+          )}
+
+          {exercise.status === 'needs-review' && (
+            <div style={{ fontSize: 12, color: 'var(--warn)', fontStyle: 'italic', marginBottom: 8 }}>
+              Low confidence match. Review before continuing.
             </div>
           )}
 
@@ -518,7 +542,13 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
             ))}
           </div>
           <div className="row" style={{ marginTop: 12, justifyContent: "flex-end" }}>
-            <button className="btn btn-ghost btn-sm" style={{ color: "var(--ink-3)" }} onClick={onSkip}>Skip this exercise — keep Garmin's guess</button>
+            <button
+              className={`btn btn-ghost${exercise.status === 'unmapped' ? '' : ' btn-sm'}`}
+              style={{ color: "var(--ink-3)" }}
+              onClick={onSkip}
+            >
+              {exercise.status === 'unmapped' ? "Skip — keep Garmin's original exercise" : "Skip this exercise — keep Garmin's guess"}
+            </button>
           </div>
         </div>
       )}
