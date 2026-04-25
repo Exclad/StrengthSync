@@ -385,6 +385,12 @@ def api_map_delete():
     return jsonify({"ok": True})
 
 
+@app.route("/api/map/reset", methods=["POST"])
+def api_map_reset():
+    deleted = database.reset_all_mappings_db()
+    return jsonify({"ok": True, "deleted": deleted})
+
+
 @app.route("/api/history")
 def api_history():
     output_dir = pathlib.Path(__file__).parent / "output"

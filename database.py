@@ -83,6 +83,14 @@ def delete_mapping_db(
         )
 
 
+def reset_all_mappings_db(db_path: str | pathlib.Path = DB_PATH) -> int:
+    """Delete all confirmed mappings. Returns count of deleted rows."""
+    with sqlite3.connect(str(db_path)) as conn:
+        cur = conn.execute("DELETE FROM confirmed_mappings")
+        conn.commit()
+        return cur.rowcount
+
+
 def get_confirmed_mapping_db(
     hevy_name: str,
     db_path: str | pathlib.Path = DB_PATH,
