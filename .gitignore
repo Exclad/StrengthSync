@@ -10,6 +10,9 @@ original_garmin.fit
 original_hevy.csv
 test_files/
 poc_roundtrip.py
+CLAUDE.md
+tests/
+scripts/
 
 # ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
