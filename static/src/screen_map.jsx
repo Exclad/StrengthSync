@@ -1,3 +1,8 @@
+// Capitalize first letter of each word, replace underscores with spaces
+const toDisplayName = name => name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+// Search normalization: compare spaces-and-words regardless of underscores in source
+const matchesSearch = (name, query) => !query || name.replace(/_/g, ' ').toLowerCase().includes(query.trim().toLowerCase());
+
 // Screen 3 — Exercise mapping (HERO)
 function ScreenMap({ onNext, onBack, state, update }) {
   const [exercises, setExercises] = useState(() => {
@@ -175,15 +180,15 @@ function ScreenMap({ onNext, onBack, state, update }) {
           </div>
           <div style={{ maxHeight: 260, overflowY: 'auto' }}>
             {allGarminExercises
-              .filter(ex => !librarySearch || ex.exercise_name.toLowerCase().includes(librarySearch.toLowerCase()) || ex.exercise_category.toLowerCase().includes(librarySearch.toLowerCase()))
+              .filter(ex => matchesSearch(ex.exercise_name, librarySearch) || matchesSearch(ex.exercise_category, librarySearch))
               .map((ex, i) => (
                 <div key={i} style={{ padding: '9px 16px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13 }}>{ex.exercise_name.replace(/_/g, ' ')}</span>
-                  <span className="chip neutral" style={{ fontSize: 10 }}>{ex.exercise_category.replace(/_/g, ' ')}</span>
+                  <span style={{ fontSize: 13 }}>{toDisplayName(ex.exercise_name)}</span>
+                  <span className="chip neutral" style={{ fontSize: 10 }}>{toDisplayName(ex.exercise_category)}</span>
                 </div>
               ))
             }
-            {allGarminExercises.filter(ex => !librarySearch || ex.exercise_name.toLowerCase().includes(librarySearch.toLowerCase()) || ex.exercise_category.toLowerCase().includes(librarySearch.toLowerCase())).length === 0 && (
+            {allGarminExercises.filter(ex => matchesSearch(ex.exercise_name, librarySearch) || matchesSearch(ex.exercise_category, librarySearch)).length === 0 && (
               <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>No exercises match "{librarySearch}"</div>
             )}
           </div>
@@ -491,12 +496,12 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
               />
               <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
                 {allGarminExercises
-                  .filter(e => !searchQuery || e.exercise_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .filter(e => matchesSearch(e.exercise_name, searchQuery))
                   .slice(0, 15)
                   .map(e => (
                     <button key={e.exercise_name} className="btn btn-ghost btn-sm" style={{ marginTop: 4, display: 'block', width: '100%', textAlign: 'left' }}
-                      onClick={() => onAccept(exercise.id, { id: e.exercise_name, label: e.exercise_name.replace(/_/g, ' ') })}>
-                      {e.exercise_name.replace(/_/g, ' ')}
+                      onClick={() => onAccept(exercise.id, { id: e.exercise_name, label: toDisplayName(e.exercise_name) })}>
+                      {toDisplayName(e.exercise_name)}
                     </button>
                   ))
                 }

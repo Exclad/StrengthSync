@@ -865,6 +865,13 @@ def build_merged_fit(
     data = bytearray(original)
     n_patched = _patch_active_sets_inplace(data, flat_sets, garmin_ex_list)
 
+    # Strip the original trailing 2-byte file CRC so data = [header][data_records] only.
+    # The no-overflow path uses data = bytearray(original) which still carries the old CRC;
+    # if we don't strip it, file_crc is computed over [header+records+old_CRC] and then
+    # appended again, producing a 2-byte-too-long file that fails fit-tool validation.
+    old_data_size = struct.unpack_from('<I', data, 4)[0]
+    data = bytearray(data[:header_size + old_data_size])
+
     # Append overflow Hevy sets (when Hevy has more sets than Garmin active slots)
     if len(flat_sets) > n_patched:
         overflow_flat = flat_sets[n_patched:]
@@ -873,12 +880,8 @@ def build_merged_fit(
         all_ts = _assign_timestamps(active_times, len(flat_sets), workout_end_fit)
         overflow_dicts = _build_set_dicts(overflow_flat, all_ts[n_patched:])
         overflow_bytes = _encode_hevy_sets(overflow_dicts)
-
-        # Splice overflow before the trailing file CRC (last 2 bytes)
-        old_data_size = struct.unpack_from('<I', data, 4)[0]
         new_data_size = old_data_size + len(overflow_bytes)
-        body  = bytes(data[:header_size + old_data_size]) + overflow_bytes
-        data  = bytearray(body)
+        data.extend(overflow_bytes)
         struct.pack_into('<I', data, 4, new_data_size)
 
     # Recompute header CRC (covers bytes 0-11) and file CRC
