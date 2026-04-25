@@ -1,7 +1,34 @@
-# User-specific confirmed exercise mappings (not shared)
-data/exercise_mappings.db
+# ── User data (never shared) ────────────────────────────────────────────────
+data/exercise_mappings.db          # per-user SQLite exercise mapping history
 
-# Python
+# ── Output / temp FIT files ─────────────────────────────────────────────────
+output/                            # merged FIT files written at runtime
+tmp_uploads/                       # server-side temp upload directory
+
+# ── Dev / sample files (not needed by end users) ────────────────────────────
+original_garmin.fit
+original_hevy.csv
+test_files/
+poc_roundtrip.py
+
+# ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# ── OS / editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.env
+*.swp
+*.swo
+
+# ── GSD planning artifacts (dev-only) ───────────────────────────────────────
+.planning/
+.claude/
