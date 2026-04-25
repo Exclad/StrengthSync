@@ -136,9 +136,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 ### Phase 7: Hevy Import UX + Donation Link
 
 **Goal:** Persistent Hevy CSV cache (no re-upload every session), optional Hevy API beta integration (fetch workouts directly with an API key), and a donation link in Settings.
-**Requirements**: D-01 through D-09 (see 07-CONTEXT.md)
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 7 to break down)
+- [ ] 07-00-PLAN.md — Wave 0: RED test stubs for all new Phase 7 behaviors
+- [ ] 07-01-PLAN.md — Wave 1: Backend — cache-status, use-cache, hevy/test, hevy/workouts routes + parse_hevy_api_response + DONATION_URL + /api/config
+- [ ] 07-02-PLAN.md — Wave 2a: Upload screen — cache banner state machine + Hevy API section
+- [ ] 07-03-PLAN.md — Wave 2b: Settings screen — HEVY API (BETA) group + CSV cache warning + donation footer
+- [ ] 07-04-PLAN.md — Wave 3: ROADMAP update (D-09) + human visual checkpoint
