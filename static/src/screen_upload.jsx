@@ -1,19 +1,34 @@
 // Screen 1 — Upload & connect
-function ScreenUpload({ onNext, state, update }) {
+function ScreenUpload({ onNext, state, update, setPage }) {
   const fitInput = useRef(null);
   const hevyInput = useRef(null);
 
   const [timezones, setTimezones] = useState([]);
   const [timezone, setTimezone] = useState('');
   const [tzFilter, setTzFilter] = useState('');
+  const [tzSource, setTzSource] = useState(null); // null | 'auto' | 'saved'
   const [uploadError, setUploadError] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Fetch timezone list on mount
+  // Fetch timezone list on mount, then auto-detect or restore saved timezone
   useEffect(() => {
     fetch('/api/timezones')
       .then(r => r.json())
-      .then(data => setTimezones(data))
+      .then(data => {
+        setTimezones(data);
+        // Auto-detect timezone
+        const saved = localStorage.getItem('ss-timezone');
+        if (saved && data.includes(saved)) {
+          setTimezone(saved);
+          setTzSource('saved');
+        } else {
+          const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (detected && data.includes(detected)) {
+            setTimezone(detected);
+            setTzSource('auto');
+          }
+        }
+      })
       .catch(() => setTimezones([]));
   }, []);
 
@@ -66,6 +81,7 @@ function ScreenUpload({ onNext, state, update }) {
         return;
       }
       update({ timezone, uploadResult: body });
+      localStorage.setItem('ss-timezone', timezone);
       onNext(body);
     } catch (err) {
       setUploadError('Network error. Is the app running?');
@@ -224,9 +240,21 @@ function ScreenUpload({ onNext, state, update }) {
           ))}
         </select>
         {timezone && (
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <IconCheck size={12} style={{ color: 'var(--good)' }}/>
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <IconCheck size={12} style={{ color: 'var(--good)', flexShrink: 0 }}/>
             <span style={{ fontSize: 12, color: 'var(--good)', fontFamily: 'var(--font-mono)' }}>{timezone}</span>
+            {tzSource && (
+              <span style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                · {tzSource === 'auto' ? 'Auto-detected from your browser' : 'Saved preference'}
+                {setPage && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: 11, padding: '3px 8px', marginLeft: 4 }}
+                    onClick={() => setPage('settings')}
+                  >Change in Settings</button>
+                )}
+              </span>
+            )}
           </div>
         )}
       </div>
