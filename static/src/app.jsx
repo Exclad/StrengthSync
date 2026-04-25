@@ -114,11 +114,13 @@ function App() {
       <Shell step={step} setStep={setStep} theme={theme} setTheme={setTheme} tweaksOn={tweaksOn} page={page} setPage={setPage}>
         {page === "library" && <ScreenLibrary onBack={() => setPage("sync")}/>}
         {page === "history" && <ScreenHistory onBack={() => setPage("sync")}/>}
+        {page === "settings" && <ScreenSettings onBack={() => setPage("sync")} setPage={setPage}/>}
         {page === "sync" && <div data-screen-label={`0${step+1} ${["Upload","Match","Map","Preview","Export"][step]}`}>
           {step === 0 && <ScreenUpload
             onNext={(data) => { update({ uploadResult: data }); setStep(1); }}
             state={appState}
             update={update}
+            setPage={setPage}
           />}
           {step === 1 && <ScreenMatch
             onNext={(data) => { update({ matchResult: data }); setStep(2); }}

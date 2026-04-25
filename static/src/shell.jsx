@@ -17,7 +17,7 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
             <div>StrengthSync<em>/v1.0</em></div>
           </div>
           <div className="nav-pill" role="tablist">
-            {[["sync","Sync"],["library","Library"],["history","History"]].map(([p, label]) => (
+            {[["sync","Sync"],["library","Library"],["history","History"],["settings","Settings"]].map(([p, label]) => (
               <button
                 key={p}
                 className={page === p ? "active" : ""}
