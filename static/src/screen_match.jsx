@@ -15,12 +15,27 @@ function ScreenMatch({ onNext, onBack, state, update }) {
     })
       .then(async r => {
         const body = await r.json();
-        if (!r.ok) { setMatchError(body.error || 'Match failed.'); setLoading(false); return; }
+        if (!r.ok) {
+          const matchErr = body.error || '';
+          if (matchErr.toLowerCase().includes('no') && matchErr.toLowerCase().includes('match')) {
+            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
+          } else if (matchErr.toLowerCase().includes('multiple') || matchErr.toLowerCase().includes('ambiguous')) {
+            const numMatch = matchErr.match(/\d+/);
+            const n = numMatch ? numMatch[0] : 'multiple';
+            setMatchError(`Found ${n} possible matches. Pick the correct Hevy workout below.`);
+          } else if (matchErr) {
+            setMatchError(matchErr);
+          } else {
+            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
+          }
+          setLoading(false);
+          return;
+        }
         setMatchResult(body);
         update({ matchResult: body });
         setLoading(false);
       })
-      .catch(() => { setMatchError('Network error.'); setLoading(false); });
+      .catch(() => { setMatchError('Network error — couldn\'t reach the app. Refresh and try again if the problem persists.'); setLoading(false); });
   }, []);
 
   const handleManualMatch = (hevy_idx) => {
@@ -33,12 +48,27 @@ function ScreenMatch({ onNext, onBack, state, update }) {
     })
       .then(async r => {
         const body = await r.json();
-        if (!r.ok) { setMatchError(body.error || 'Match failed.'); setLoading(false); return; }
+        if (!r.ok) {
+          const matchErr = body.error || '';
+          if (matchErr.toLowerCase().includes('no') && matchErr.toLowerCase().includes('match')) {
+            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
+          } else if (matchErr.toLowerCase().includes('multiple') || matchErr.toLowerCase().includes('ambiguous')) {
+            const numMatch = matchErr.match(/\d+/);
+            const n = numMatch ? numMatch[0] : 'multiple';
+            setMatchError(`Found ${n} possible matches. Pick the correct Hevy workout below.`);
+          } else if (matchErr) {
+            setMatchError(matchErr);
+          } else {
+            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
+          }
+          setLoading(false);
+          return;
+        }
         setMatchResult(body);
         update({ matchResult: body });
         setLoading(false);
       })
-      .catch(() => { setMatchError('Network error.'); setLoading(false); });
+      .catch(() => { setMatchError('Network error — couldn\'t reach the app. Refresh and try again if the problem persists.'); setLoading(false); });
   };
 
   const garmin = matchResult?.garmin;
