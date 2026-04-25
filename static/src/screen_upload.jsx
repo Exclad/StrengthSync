@@ -48,7 +48,20 @@ function ScreenUpload({ onNext, state, update }) {
       const resp = await fetch('/api/upload', { method: 'POST', body: formData });
       const body = await resp.json();
       if (!resp.ok) {
-        setUploadError(body.error || 'Upload failed.');
+        const rawError = body.error || '';
+        let msg;
+        if (rawError.toLowerCase().includes('fit') && (rawError.toLowerCase().includes('parse') || rawError.toLowerCase().includes('invalid'))) {
+          msg = "Couldn't read the FIT file. " + rawError + " Try exporting a fresh copy from Garmin Connect.";
+        } else if (rawError.toLowerCase().includes('fit')) {
+          msg = "That file doesn't look like a Garmin FIT file. Export from Garmin Connect → Activity → ⋯ → Export original.";
+        } else if (rawError.toLowerCase().includes('csv') || rawError.toLowerCase().includes('hevy')) {
+          msg = "The CSV doesn't match Hevy's export format. In Hevy: Profile → Settings → Export Workout Data → Download.";
+        } else if (rawError) {
+          msg = rawError;
+        } else {
+          msg = "That file doesn't look like a Garmin FIT file. Export from Garmin Connect → Activity → ⋯ → Export original.";
+        }
+        setUploadError(msg);
         setUploading(false);
         return;
       }
