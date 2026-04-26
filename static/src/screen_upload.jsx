@@ -150,7 +150,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
               </div>
             </div>
             <div className="row" style={{ gap: 8, alignItems: "center", flexShrink: 0 }}>
-              <a href="https://connect.garmin.com/app/activities" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: "2px 8px", whiteSpace: "nowrap" }}>Open Garmin Connect ↗</a>
+              <a href="https://connect.garmin.com/app/activities" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: "5px 11px", whiteSpace: "nowrap" }}>Open Garmin Connect ↗</a>
               <span className={`chip ${state.fitFiles.length ? "good" : "neutral"}`}>
                 <span className="dot"></span>
                 {state.fitFiles.length ? `${state.fitFiles.length} FILE${state.fitFiles.length > 1 ? "S" : ""}` : "NO FILES"}
@@ -221,7 +221,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
                 <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Workout source</div>
               </div>
             </div>
-            <a href="https://hevy.com/settings?export" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: "2px 8px", whiteSpace: "nowrap", flexShrink: 0 }}>Open Hevy ↗</a>
+            <a href="https://hevy.com/settings?export" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: "5px 11px", whiteSpace: "nowrap", flexShrink: 0 }}>Open Hevy ↗</a>
           </div>
 
           {/* Phase 7 D-01: Cache banner — only shown when cache exists and not yet using it */}
