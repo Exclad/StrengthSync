@@ -482,12 +482,28 @@ def api_map_suggest():
     hevy_name = data.get("hevy_exercise_name", "").strip()
     if not hevy_name:
         return jsonify({"error": "hevy_exercise_name is required.", "detail": "empty string"}), 400
+    confirmed_ex = mapper.get_confirmed_mapping(hevy_name)
+    if confirmed_ex is not None:
+        fuzzy = mapper.suggest_mapping(hevy_name, limit=4)
+        confirmed_entry = {
+            "id": confirmed_ex.exercise_name,
+            "label": confirmed_ex.exercise_name.replace("_", " ").title(),
+            "score": 100.0,
+            "confirmed": True,
+        }
+        fuzzy_entries = [
+            {"id": ex.exercise_name, "label": ex.exercise_name.replace("_", " ").title(), "score": round(score, 2), "confirmed": False}
+            for ex, score in fuzzy
+            if ex.exercise_name != confirmed_ex.exercise_name
+        ]
+        return jsonify({"suggestions": [confirmed_entry] + fuzzy_entries, "confirmed": True})
     suggestions = mapper.suggest_mapping(hevy_name, limit=5)
     return jsonify({
         "suggestions": [
-            {"id": ex.exercise_name, "label": ex.exercise_name.replace("_", " ").title(), "score": round(score, 2)}
+            {"id": ex.exercise_name, "label": ex.exercise_name.replace("_", " ").title(), "score": round(score, 2), "confirmed": False}
             for ex, score in suggestions
-        ]
+        ],
+        "confirmed": False,
     })
 
 

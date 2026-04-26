@@ -61,11 +61,12 @@ function ScreenMap({ onNext, onBack, state, update }) {
           .then(body => {
             const suggestions = body.suggestions || [];
             const top = suggestions[0];
-            const newStatus = top && top.score >= 70 ? 'mapped' : (top ? 'needs-review' : 'unmapped');
-            const confidence = top ? top.score / 100 : 0;
+            const isConfirmed = body.confirmed === true;
+            const newStatus = isConfirmed ? 'mapped' : (top && top.score >= 70 ? 'mapped' : (top ? 'needs-review' : 'unmapped'));
+            const confidence = isConfirmed ? 1.0 : (top ? top.score / 100 : 0);
             setExercises(prev2 => prev2.map(e =>
               e.id === ex.id
-                ? { ...e, suggestions, status: newStatus, confidence, garmin: top?.id || null, garminLabel: top?.label || null }
+                ? { ...e, suggestions, status: newStatus, confidence, garmin: top?.id || null, garminLabel: top?.label || null, dbConfirmed: isConfirmed }
                 : e
             ));
           })
@@ -88,7 +89,7 @@ function ScreenMap({ onNext, onBack, state, update }) {
         if (!r.ok) { const b = await r.json(); setMapError(b.error || "Couldn't save that mapping. Check the app is still running and try again."); return; }
         setExercises(prev => prev.map(e =>
           e.id === exId
-            ? { ...e, status: 'mapped', confidence: 1.0, garmin: suggestion.id, garminLabel: suggestion.label }
+            ? { ...e, status: 'mapped', confidence: 1.0, garmin: suggestion.id, garminLabel: suggestion.label, dbConfirmed: true }
             : e
         ));
         setShowSearch(false);
@@ -383,7 +384,9 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
           <div style={{ fontSize: 20, fontWeight: 700, marginTop: 2, letterSpacing: "-0.02em" }}>{exercise.hevy}</div>
         </div>
         {exercise.status === "mapped" && (
-          <span className="chip good"><IconCheck size={11}/> MAPPED · {Math.round(exercise.confidence * 100)}%</span>
+          exercise.dbConfirmed
+            ? <span className="chip good"><IconCheck size={11}/> SAVED IN LIBRARY</span>
+            : <span className="chip good"><IconCheck size={11}/> MAPPED · {Math.round(exercise.confidence * 100)}%</span>
         )}
         {exercise.status === "needs-review" && (
           <span className="chip warn"><IconWarn size={11}/> LOW CONFIDENCE · {Math.round(exercise.confidence * 100)}%</span>
@@ -562,9 +565,12 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
         <div style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "color-mix(in oklab, var(--good) 8%, transparent)" }}>
           <div className="row" style={{ gap: 8, fontSize: 13 }}>
             <IconCheck size={14} style={{ color: "var(--good)" }}/>
-            <span>Saved to your mapping library — we'll use this next time automatically.</span>
+            {exercise.dbConfirmed
+              ? <span>Using your saved mapping from library. Change it below if needed.</span>
+              : <span>Saved to your mapping library — we'll use this next time automatically.</span>
+            }
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClear}>Undo</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClear}>Change</button>
         </div>
       )}
 
