@@ -1,5 +1,7 @@
 # ── User data (never shared) ────────────────────────────────────────────────
 data/exercise_mappings.db          # per-user SQLite exercise mapping history
+data/hevy_cache.csv                # cached Hevy export (contains personal workout data)
+data/*.db                          # any other SQLite databases
 
 # ── Output / temp FIT files ─────────────────────────────────────────────────
 output/                            # merged FIT files written at runtime
@@ -11,7 +13,6 @@ original_hevy.csv
 test_files/
 poc_roundtrip.py
 CLAUDE.md
-tests/
 scripts/
 
 # ── Python ───────────────────────────────────────────────────────────────────
