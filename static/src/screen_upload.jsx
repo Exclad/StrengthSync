@@ -146,7 +146,10 @@ function ScreenUpload({ onNext, state, update, setPage }) {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>Garmin <span className="mono" style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 500 }}>/ .fit</span></div>
-                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Download from Garmin Connect → Activity → ⋯ → Export original</div>
+                <div style={{ fontSize: 12, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  Download from Garmin Connect → Activity → ⋯ → Export original
+                  <a href="https://connect.garmin.com/app/activities" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: "2px 8px", whiteSpace: "nowrap" }}>Open Garmin Connect ↗</a>
+                </div>
               </div>
             </div>
             <span className={`chip ${state.fitFiles.length ? "good" : "neutral"}`}>
@@ -289,7 +292,10 @@ function ScreenUpload({ onNext, state, update, setPage }) {
             <>
               <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
                 <IconFile size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }}/>
-                <span style={{ fontSize: 13, color: "var(--ink-3)" }}>Export from <strong style={{ color: "var(--ink)" }}>Hevy Settings → Export</strong> then upload the CSV below.</span>
+                <span style={{ fontSize: 13, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span>Export from <strong style={{ color: "var(--ink)" }}>Hevy Settings → Export</strong> then upload the CSV below.</span>
+                  <a href="https://hevy.com/settings?export" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: "2px 8px", whiteSpace: "nowrap" }}>Open Hevy ↗</a>
+                </span>
               </div>
 
               <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px dashed var(--line-2)", textAlign: "center" }}>
