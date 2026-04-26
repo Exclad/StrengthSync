@@ -12,6 +12,14 @@ function ScreenUpload({ onNext, state, update, setPage }) {
   const [uploading, setUploading] = useState(false);
   const tzWrapRef = useRef(null);
 
+  // Phase 7: cache banner + Hevy API section state
+  const [cacheStatus, setCacheStatus] = useState(null);     // null=loading, {exists,workout_count,last_updated}
+  const [usingCache, setUsingCache] = useState(false);       // true after user confirms cached export
+  const [hevyFromApi, setHevyFromApi] = useState(false);     // true after successful API fetch
+  const [hevyApiKey] = useState(() => localStorage.getItem('ss-hevy-api-key') || '');  // sync read, no flash
+  const [apiFetching, setApiFetching] = useState(false);
+  const [apiError, setApiError] = useState(null);
+
   // Close timezone dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -46,6 +54,14 @@ function ScreenUpload({ onNext, state, update, setPage }) {
       .catch(() => setTimezones([]));
   }, []);
 
+  // Phase 7: fetch cache status on mount for cache banner
+  useEffect(() => {
+    fetch('/api/hevy/cache-status')
+      .then(r => r.json())
+      .then(setCacheStatus)
+      .catch(() => setCacheStatus({ exists: false }));
+  }, []);
+
   const addFiles = (files) => {
     const newFiles = Array.from(files).map(f => ({
       id: Math.random().toString(36).slice(2),
@@ -63,14 +79,23 @@ function ScreenUpload({ onNext, state, update, setPage }) {
     addFiles(e.dataTransfer.files);
   };
 
-  const canContinue = state.fitFiles.length > 0 && state.hevyFile && timezone && !uploading;
+  const canContinue = state.fitFiles.length > 0
+    && (state.hevyFile || usingCache || hevyFromApi)
+    && timezone
+    && !uploading;
 
   const handleContinue = async () => {
     setUploadError(null);
     setUploading(true);
     const formData = new FormData();
     formData.append('fit_file', state.fitFiles[0]._file);
-    if (state.hevyFile) formData.append('hevy_csv', state.hevyFile);
+    if (!usingCache && !hevyFromApi) {
+      // Normal path: user uploaded a new CSV
+      if (state.hevyFile) formData.append('hevy_csv', state.hevyFile);
+    } else {
+      // Cache / API path: Hevy session already set by use-cache or workouts endpoint
+      formData.append('use_session_hevy', 'true');
+    }
     formData.append('timezone', timezone);
 
     try {
@@ -195,30 +220,169 @@ function ScreenUpload({ onNext, state, update, setPage }) {
             </div>
           </div>
 
-          <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
-            <IconFile size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }}/>
-            <span style={{ fontSize: 13, color: "var(--ink-3)" }}>Export from <strong style={{ color: "var(--ink)" }}>Hevy Settings → Export</strong> then upload the CSV below.</span>
-          </div>
-
-          {true && (
-            <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px dashed var(--line-2)", textAlign: "center" }}>
-              <input ref={hevyInput} type="file" accept=".csv" style={{ display: "none" }}
-                onChange={e => { if (e.target.files[0]) update({ hevyFile: e.target.files[0] }); }} />
-              <IconUpload size={18}/>
-              {state.hevyFile ? (
-                <div style={{ fontSize: 13, marginTop: 4, color: "var(--good)" }}>
-                  <IconCheck size={12}/> {state.hevyFile.name}
+          {/* Phase 7 D-01: Cache banner — only shown when cache exists and not yet using it */}
+          {cacheStatus?.exists && !usingCache && (
+            <div style={{ marginTop: 14, padding: '12px 16px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10 }}>
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                    {cacheStatus.workout_count} workout{cacheStatus.workout_count !== 1 ? 's' : ''}
+                    {cacheStatus.last_updated ? ` · ${new Date(cacheStatus.last_updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                  </span>
+                  <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', ui-monospace, monospace", color: 'var(--ink-3)', letterSpacing: '0.06em' }}>
+                    Last Hevy export
+                  </span>
                 </div>
-              ) : (
-                <div style={{ fontSize: 13, marginTop: 4 }}>
-                  Drop hevy-export.csv
-                  <div style={{ marginTop: 8 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); hevyInput.current?.click(); }}>Browse files</button>
-                  </div>
+                <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                  {/* D-03: age warning chip when cache older than ss-cache-warning-days threshold */}
+                  {(() => {
+                    const threshDays = parseInt(localStorage.getItem('ss-cache-warning-days') || '7', 10);
+                    const ageExceeded = cacheStatus.last_updated
+                      ? (Date.now() - new Date(cacheStatus.last_updated).getTime()) / 86400000 > threshDays
+                      : false;
+                    return ageExceeded
+                      ? <span className="chip warn" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>OUTDATED</span>
+                      : null;
+                  })()}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={async () => {
+                      try {
+                        const r = await fetch('/api/hevy/use-cache', { method: 'POST' });
+                        if (!r.ok) throw new Error('failed');
+                        setUsingCache(true);
+                      } catch {
+                        setUploadError('Could not activate cached export. Try uploading a fresh CSV.');
+                      }
+                    }}
+                  >
+                    Use cached export
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           )}
+
+          {/* Cache active state — shown when usingCache=true */}
+          {usingCache && (
+            <div style={{ marginTop: 14, padding: '12px 16px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10 }}>
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span className="chip good" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>CACHED</span>
+                  <span style={{ marginLeft: 10, fontSize: 13, color: 'var(--ink-2)' }}>
+                    {cacheStatus?.workout_count} workout{cacheStatus?.workout_count !== 1 ? 's' : ''} from cached export
+                  </span>
+                </div>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setUsingCache(false)}
+                  style={{ fontSize: 12 }}
+                >
+                  Upload new instead
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* CSV drop zone — hidden when using cache or API */}
+          {!usingCache && !hevyFromApi && (
+            <>
+              <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
+                <IconFile size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }}/>
+                <span style={{ fontSize: 13, color: "var(--ink-3)" }}>Export from <strong style={{ color: "var(--ink)" }}>Hevy Settings → Export</strong> then upload the CSV below.</span>
+              </div>
+
+              <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px dashed var(--line-2)", textAlign: "center" }}>
+                <input ref={hevyInput} type="file" accept=".csv" style={{ display: "none" }}
+                  onChange={e => { if (e.target.files[0]) update({ hevyFile: e.target.files[0] }); }} />
+                <IconUpload size={18}/>
+                {state.hevyFile ? (
+                  <div style={{ fontSize: 13, marginTop: 4, color: "var(--good)" }}>
+                    <IconCheck size={12}/> {state.hevyFile.name}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, marginTop: 4 }}>
+                    Drop hevy-export.csv
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); hevyInput.current?.click(); }}>Browse files</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Phase 7 D-05/D-07: Hevy API section */}
+          <div style={{ borderTop: '1px solid var(--line)', marginTop: 16, paddingTop: 12 }}>
+            <div className="row" style={{ gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                OR CONNECT VIA API
+              </span>
+              <span className="chip neutral" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>BETA</span>
+            </div>
+
+            {!hevyApiKey ? (
+              /* No API key stored — prompt to go to Settings */
+              <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: '0 0 8px' }}>
+                Enter your Hevy API key in Settings → Hevy API to fetch workouts directly.{' '}
+                <button className="btn btn-ghost btn-sm" onClick={() => setPage && setPage('settings')} style={{ fontSize: 12, padding: '2px 8px' }}>
+                  Open Settings
+                </button>
+              </p>
+            ) : hevyFromApi ? (
+              /* API fetch succeeded */
+              <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                <span className="chip good" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>CACHED</span>
+                <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Workouts fetched from Hevy API</span>
+              </div>
+            ) : (
+              /* API key stored — show fetch button */
+              <div>
+                <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: apiError ? 8 : 0 }}>
+                  <span className="chip good" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>API READY</span>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={apiFetching}
+                    onClick={async () => {
+                      setApiError(null);
+                      setApiFetching(true);
+                      try {
+                        const r = await fetch('/api/hevy/workouts', {
+                          headers: { 'X-Hevy-Key': hevyApiKey },
+                        });
+                        const body = await r.json();
+                        if (!r.ok || body.error) {
+                          const errMap = {
+                            invalid_key: 'Invalid API key. Check Settings → Hevy API.',
+                            rate_limited: 'Hevy rate limit hit. Wait a few minutes and try again.',
+                            unreachable: "Could not reach Hevy's API. Check your connection.",
+                            no_cache_fallback: "Hevy API unavailable and no cached export found. Export your workouts from Hevy Settings → Export and upload the CSV.",
+                          };
+                          setApiError(errMap[body.error] || body.error || 'Unknown error fetching from Hevy API.');
+                        } else {
+                          if (body.warning) {
+                            setApiError(body.warning);  // Show as warn message (cache fallback used)
+                          }
+                          setHevyFromApi(true);
+                        }
+                      } catch {
+                        setApiError("Could not reach Hevy's API. Check your connection.");
+                      }
+                      setApiFetching(false);
+                    }}
+                  >
+                    {apiFetching ? 'Fetching…' : 'Fetch from Hevy API'}
+                  </button>
+                </div>
+                {apiError && (
+                  <div className="chip bad" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, marginTop: 4, fontSize: 12 }}>
+                    <IconWarn size={12}/>
+                    <span>{apiError}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="grow"></div>
 

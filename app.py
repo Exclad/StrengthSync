@@ -276,11 +276,12 @@ def api_config():
 def api_upload():
     if "fit_file" not in request.files:
         return jsonify({"error": "No FIT file provided.", "detail": "fit_file field missing"}), 400
-    if "hevy_csv" not in request.files:
+
+    use_session_hevy = request.form.get("use_session_hevy", "").lower() == "true"
+    if "hevy_csv" not in request.files and not use_session_hevy:
         return jsonify({"error": "No Hevy CSV provided.", "detail": "hevy_csv field missing"}), 400
 
     fit_file = request.files["fit_file"]
-    hevy_file = request.files["hevy_csv"]
     timezone_str = request.form.get("timezone", "").strip()
 
     if not timezone_str:
@@ -293,11 +294,8 @@ def api_upload():
 
     tmp_dir = tempfile.mkdtemp()
     fit_filename = secure_filename(fit_file.filename or "upload.fit")
-    hevy_filename = secure_filename(hevy_file.filename or "upload.csv")
     tmp_fit_path = os.path.join(tmp_dir, fit_filename)
-    tmp_hevy_path = os.path.join(tmp_dir, hevy_filename)
     fit_file.save(tmp_fit_path)
-    hevy_file.save(tmp_hevy_path)
 
     # Validate FIT file
     try:
@@ -310,22 +308,42 @@ def api_upload():
             msg = "FIT file failed to parse. Try re-exporting from Garmin Connect."
         return jsonify({"error": msg, "detail": str(exc)}), 400
 
-    # Validate Hevy CSV
-    try:
-        hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy_path)
-        if not hevy_workouts:
-            raise ValueError("CSV parsed but contains no workouts")
-        # Phase 7 (D-04): persist copy to data/hevy_cache.csv — best-effort, non-fatal
+    if use_session_hevy:
+        # Cache / API path: use Hevy data already set in session by /api/hevy/use-cache or /api/hevy/workouts
+        # T-07-07 mitigation: verify session path exists on disk before using (prevents path injection)
+        hevy_csv_path_existing = session.get("hevy_csv_path")
+        if not hevy_csv_path_existing or not pathlib.Path(hevy_csv_path_existing).exists():
+            return jsonify({"error": "No cached Hevy data found. Please upload a Hevy CSV.", "detail": "session hevy_csv_path missing or file gone"}), 400
         try:
-            CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(tmp_hevy_path, str(CACHE_PATH))
-        except OSError:
-            pass  # Cache write failure must never block the primary upload flow
-    except Exception as exc:
-        return jsonify({
-            "error": "This doesn't look like a Hevy export. Go to Hevy Settings → Export and try again.",
-            "detail": str(exc),
-        }), 400
+            hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path_existing)
+            if not hevy_workouts:
+                raise ValueError("Cached CSV contains no workouts")
+        except Exception as exc:
+            return jsonify({"error": "Failed to parse cached Hevy export.", "detail": str(exc)}), 400
+        tmp_hevy_path = hevy_csv_path_existing  # reuse existing path — no copy needed
+    else:
+        # Normal upload path: user uploaded a new CSV file
+        hevy_file = request.files["hevy_csv"]
+        hevy_filename = secure_filename(hevy_file.filename or "upload.csv")
+        tmp_hevy_path = os.path.join(tmp_dir, hevy_filename)
+        hevy_file.save(tmp_hevy_path)
+
+        # Validate Hevy CSV
+        try:
+            hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy_path)
+            if not hevy_workouts:
+                raise ValueError("CSV parsed but contains no workouts")
+            # Phase 7 (D-04): persist copy to data/hevy_cache.csv — best-effort, non-fatal
+            try:
+                CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(tmp_hevy_path, str(CACHE_PATH))
+            except OSError:
+                pass  # Cache write failure must never block the primary upload flow
+        except Exception as exc:
+            return jsonify({
+                "error": "This doesn't look like a Hevy export. Go to Hevy Settings → Export and try again.",
+                "detail": str(exc),
+            }), 400
 
     # Store minimal state in session (only string keys — D-24)
     session["fit_path"] = tmp_fit_path
