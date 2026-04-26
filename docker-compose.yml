@@ -5,9 +5,12 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # exercise mapping database and hevy CSV cache persist across restarts
+      # All user data persists across restarts and updates:
+      #   data/exercise_mappings.db  — your saved exercise mappings
+      #   data/hevy_cache.csv        — cached Hevy CSV export
+      #   data/uploads/current.fit   — last uploaded Garmin FIT file (session survives restart)
       - ./data:/app/data
-      # merged FIT files persist and are re-downloadable from the History tab
+      # merged FIT files — re-downloadable from the History tab at any time
       - ./output:/app/output
     environment:
       - HOST=0.0.0.0

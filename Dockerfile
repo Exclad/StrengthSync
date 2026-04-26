@@ -23,7 +23,7 @@ COPY . .
 
 # Data and output dirs are mounted as volumes — create them so they exist
 # even if the host hasn't mounted anything yet
-RUN mkdir -p data output
+RUN mkdir -p data/uploads output
 
 EXPOSE 5000
 

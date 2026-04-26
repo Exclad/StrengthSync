@@ -112,6 +112,14 @@ ports:
   - "8080:5000"   # access on :8080, container still listens on 5000
 ```
 
+**Data safety:**
+
+| Command | What's preserved |
+|---------|-----------------|
+| `docker compose restart` | Everything — volumes intact, session cookie still valid |
+| `docker compose down` then `up` | Exercise mappings, Hevy cache, merged FIT history, uploaded FIT file |
+| `docker compose down -v` | ⚠️ **Deletes all volumes** — exercise mappings, history, and cached files are wiped |
+
 > Note: the browser does not auto-open in Docker mode. Navigate to the app URL manually.
 
 ---

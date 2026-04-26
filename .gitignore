@@ -2,6 +2,7 @@
 data/exercise_mappings.db          # per-user SQLite exercise mapping history
 data/hevy_cache.csv                # cached Hevy export (contains personal workout data)
 data/*.db                          # any other SQLite databases
+data/uploads/                      # uploaded FIT files (personal biometric data)
 
 # ── Output / temp FIT files ─────────────────────────────────────────────────
 output/                            # merged FIT files written at runtime

@@ -28,6 +28,15 @@ if not _secret:
     _secret = secrets.token_hex(32)
 app.secret_key = _secret
 
+# Sessions persist 24 hours — survives browser close/reopen without re-uploading files
+from datetime import timedelta
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
+
+# Volume-backed upload directory — FIT files survive container restarts
+UPLOADS_DIR = pathlib.Path(__file__).parent / "data" / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
 import fit_parser
 import hevy_parser
 import matcher
@@ -314,14 +323,13 @@ def api_upload():
     except (zoneinfo.ZoneInfoNotFoundError, KeyError):
         return jsonify({"error": f"Invalid timezone '{timezone_str}'.", "detail": "Must be a valid IANA timezone string"}), 400
 
-    tmp_dir = tempfile.mkdtemp()
-    fit_filename = secure_filename(fit_file.filename or "upload.fit")
-    tmp_fit_path = os.path.join(tmp_dir, fit_filename)
-    fit_file.save(tmp_fit_path)
+    # Save FIT to volume-backed directory so it survives container restarts
+    fit_path = str(UPLOADS_DIR / "current.fit")
+    fit_file.save(fit_path)
 
     # Validate FIT file
     try:
-        fit_workout = fit_parser.parse_fit_file(tmp_fit_path)
+        fit_workout = fit_parser.parse_fit_file(fit_path)
     except Exception as exc:
         err_str = str(exc).lower()
         if "not a fit file" in err_str or "magic" in err_str or "header" in err_str:
@@ -342,34 +350,33 @@ def api_upload():
                 raise ValueError("Cached CSV contains no workouts")
         except Exception as exc:
             return jsonify({"error": "Failed to parse cached Hevy export.", "detail": str(exc)}), 400
-        tmp_hevy_path = hevy_csv_path_existing  # reuse existing path — no copy needed
+        hevy_csv_path = hevy_csv_path_existing
     else:
         # Normal upload path: user uploaded a new CSV file
         hevy_file = request.files["hevy_csv"]
-        hevy_filename = secure_filename(hevy_file.filename or "upload.csv")
-        tmp_hevy_path = os.path.join(tmp_dir, hevy_filename)
-        hevy_file.save(tmp_hevy_path)
+        tmp_hevy = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
+        hevy_file.save(tmp_hevy.name)
 
         # Validate Hevy CSV
         try:
-            hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy_path, weight_unit=weight_unit)
+            hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy.name, weight_unit=weight_unit)
             if not hevy_workouts:
                 raise ValueError("CSV parsed but contains no workouts")
-            # Phase 7 (D-04): persist copy to data/hevy_cache.csv — best-effort, non-fatal
-            try:
-                CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(tmp_hevy_path, str(CACHE_PATH))
-            except OSError:
-                pass  # Cache write failure must never block the primary upload flow
+            # Persist to data/hevy_cache.csv (volume-backed) — session always uses this path
+            CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(tmp_hevy.name, str(CACHE_PATH))
         except Exception as exc:
             return jsonify({
                 "error": "This doesn't look like a Hevy export. Go to Hevy Settings → Export and try again.",
                 "detail": str(exc),
             }), 400
+        finally:
+            os.unlink(tmp_hevy.name)
+        hevy_csv_path = str(CACHE_PATH)
 
     # Store minimal state in session (only string keys — D-24)
-    session["fit_path"] = tmp_fit_path
-    session["hevy_csv_path"] = tmp_hevy_path
+    session["fit_path"] = fit_path
+    session["hevy_csv_path"] = hevy_csv_path
     session["timezone"] = timezone_str
     session["weight_unit"] = weight_unit
 
