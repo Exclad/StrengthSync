@@ -14,7 +14,7 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
         <div className="row" style={{ gap: 16 }}>
           <div className="brand">
             <div className="brand-mark"><span>S</span></div>
-            <div>StrengthSync<em>/v1.0</em></div>
+            <div>StrengthSync</div>
           </div>
           <div className="nav-pill" role="tablist">
             {[["sync","Sync"],["library","Library"],["history","History"],["settings","Settings"]].map(([p, label]) => (

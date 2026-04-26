@@ -52,8 +52,8 @@ _COMMON_TIMEZONES = [
 
 CACHE_PATH = pathlib.Path(__file__).parent / "data" / "hevy_cache.csv"
 
-# TODO: Replace "#" with your chosen donation platform URL (Ko-fi, GitHub Sponsors, PayPal.me)
-DONATION_URL = "#"
+BTC_ADDRESS = "bc1qhjqappn6ere3239dqnzksuectktp62pdhu77qt"
+ETH_ADDRESS = "0x2716b0D80465a98Ada440b0c440f43c23E1Bd717"
 
 # ---------------------------------------------------------------------------
 # Phase 7 helpers
@@ -268,8 +268,8 @@ def api_hevy_workouts():
 
 @app.route("/api/config")
 def api_config():
-    """Expose frontend-safe config constants (e.g. donation URL)."""
-    return jsonify({"donation_url": DONATION_URL})
+    """Expose frontend-safe config constants."""
+    return jsonify({"btc_address": BTC_ADDRESS, "eth_address": ETH_ADDRESS})
 
 
 @app.route("/api/upload", methods=["POST"])

@@ -206,6 +206,24 @@ StrengthSync/
 
 ---
 
+## Support the project
+
+StrengthSync is free and open source. If it saves you time, a small donation is appreciated.
+
+**Bitcoin (BTC)**
+```
+bc1qhjqappn6ere3239dqnzksuectktp62pdhu77qt
+```
+
+**Ethereum (ETH) / ERC-20 tokens**
+```
+0x2716b0D80465a98Ada440b0c440f43c23E1Bd717
+```
+
+> The ETH address accepts Ether and any ERC-20 token (USDC, USDT, DAI, etc.) on the Ethereum mainnet.
+
+---
+
 ## License
 
 MIT
