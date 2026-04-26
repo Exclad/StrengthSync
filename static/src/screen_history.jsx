@@ -61,9 +61,9 @@ function ScreenHistory({ onBack }) {
       {!loading && files.length > 0 && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--line)', background: 'var(--surface-2)', display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 16, alignItems: 'center' }}>
-            <span className="mono uc" style={{ fontSize: 10, color: 'var(--ink-3)' }}>File</span>
-            <span className="mono uc" style={{ fontSize: 10, color: 'var(--ink-3)' }}>Size</span>
-            <span className="mono uc" style={{ fontSize: 10, color: 'var(--ink-3)' }}>Exported</span>
+            <span className="mono uc" style={{ fontSize: 11, color: 'var(--ink-2)' }}>File</span>
+            <span className="mono uc" style={{ fontSize: 11, color: 'var(--ink-2)' }}>Size</span>
+            <span className="mono uc" style={{ fontSize: 11, color: 'var(--ink-2)' }}>Exported</span>
             <span style={{ width: 90 }}/>
           </div>
           {files.map((f, i) => (
@@ -72,11 +72,11 @@ function ScreenHistory({ onBack }) {
                 <IconFile size={16} style={{ color: 'var(--ink-3)', flexShrink: 0 }}/>
                 <div>
                   <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{f.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>FIT Protocol 2.0 · Garmin Connect ready</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2 }}>FIT Protocol 2.0 · Garmin Connect ready</div>
                 </div>
               </div>
-              <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>{f.size_kb} KB</span>
-              <span style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{fmtMtime(f.mtime)}</span>
+              <span className="mono" style={{ fontSize: 13, color: 'var(--ink-2)' }}>{f.size_kb} KB</span>
+              <span style={{ fontSize: 13, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{fmtMtime(f.mtime)}</span>
               <button
                 className="btn btn-ghost btn-sm"
                 style={{ fontSize: 12 }}
@@ -89,7 +89,7 @@ function ScreenHistory({ onBack }) {
         </div>
       )}
 
-      <div style={{ marginTop: 16, padding: '12px 16px', background: 'color-mix(in oklab, var(--accent) 8%, var(--surface))', borderRadius: 10, fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ marginTop: 16, padding: '12px 16px', background: 'color-mix(in oklab, var(--accent) 8%, var(--surface))', borderRadius: 10, fontSize: 13, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 8 }}>
         <IconLock size={13}/>
         Files are stored locally in the <span className="mono" style={{ margin: '0 2px' }}>output/</span> folder. They are never uploaded or shared.
       </div>

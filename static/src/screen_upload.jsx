@@ -148,8 +148,8 @@ function ScreenUpload({ onNext, state, update, setPage }) {
                 <IconWatch size={16}/>
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>Garmin <span className="mono" style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 500 }}>/ .fit</span></div>
-                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Download from Garmin Connect → Activity → ⋯ → Export original</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Garmin <span className="mono" style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 500 }}>/ .fit or .zip</span></div>
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>Download from Garmin Connect → Activity → ⋯ → Export original</div>
               </div>
             </div>
             <div className="row" style={{ gap: 8, alignItems: "center", flexShrink: 0 }}>
@@ -177,15 +177,15 @@ function ScreenUpload({ onNext, state, update, setPage }) {
             }}
             onClick={() => fitInput.current?.click()}
           >
-            <input ref={fitInput} type="file" multiple accept=".fit" style={{ display: "none" }}
+            <input ref={fitInput} type="file" multiple accept=".fit,.zip" style={{ display: "none" }}
               onChange={e => addFiles(e.target.files)} />
             <div style={{ width: 52, height: 52, margin: "0 auto 14px", borderRadius: 14, background: "var(--bg)", display: "grid", placeItems: "center", border: "1px solid var(--line)" }}>
               <IconUpload size={22}/>
             </div>
             <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>
-              Drop .fit files here
+              Drop .fit or .zip files here
             </div>
-            <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 14 }}>
+            <div style={{ fontSize: 14, color: "var(--ink-2)", marginBottom: 14 }}>
               Multiple files OK — batch-process a whole week at once.
             </div>
             <div className="row" style={{ justifyContent: "center", gap: 8 }}>
@@ -200,7 +200,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
                   <IconFile size={16}/>
                   <div className="grow">
                     <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{f.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{f.date} · {(f.size/1024).toFixed(0)} KB</div>
+                    <div style={{ fontSize: 12, color: "var(--ink-2)" }}>{f.date} · {(f.size/1024).toFixed(0)} KB</div>
                   </div>
                   <span className="chip good"><IconCheck size={10}/> PARSED</span>
                   <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => update({ fitFiles: state.fitFiles.filter(x => x.id !== f.id) })}>
@@ -221,7 +221,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>Hevy</div>
-                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Workout source</div>
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>Workout source</div>
               </div>
             </div>
             <a href="https://hevy.com/settings?export" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: "5px 11px", whiteSpace: "nowrap", flexShrink: 0 }}>Open Hevy ↗</a>
@@ -296,7 +296,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
             <>
               <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
                 <IconFile size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }}/>
-                <span style={{ fontSize: 13, color: "var(--ink-3)" }}>Export from <strong style={{ color: "var(--ink)" }}>Hevy Settings → Export</strong> then upload the CSV below.</span>
+                <span style={{ fontSize: 13, color: "var(--ink-2)" }}>Export from <strong style={{ color: "var(--ink)" }}>Hevy Settings → Export</strong> then upload the CSV below.</span>
               </div>
 
               <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px dashed var(--line-2)", textAlign: "center" }}>

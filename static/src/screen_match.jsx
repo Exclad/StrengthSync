@@ -139,9 +139,9 @@ function ColumnHeader({ title, sub, icon }) {
     <div style={{ padding: "0 4px 14px", borderBottom: "1px solid var(--line)" }}>
       <div className="row" style={{ gap: 8 }}>
         {icon}
-        <span className="uc mono" style={{ fontSize: 11, fontWeight: 600 }}>{title}</span>
+        <span className="uc mono" style={{ fontSize: 12, fontWeight: 600 }}>{title}</span>
       </div>
-      <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4 }}>{sub}</div>
+      <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 4 }}>{sub}</div>
     </div>
   );
 }
@@ -149,7 +149,7 @@ function ColumnHeader({ title, sub, icon }) {
 function Stat({ label, value, good }) {
   return (
     <div className="stack">
-      <div className="mono uc" style={{ fontSize: 10, color: "var(--ink-3)" }}>{label}</div>
+      <div className="mono uc" style={{ fontSize: 11, color: "var(--ink-2)" }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: good ? "var(--good)" : "var(--ink)", letterSpacing: "-0.02em" }}>{value}</div>
     </div>
   );
@@ -170,7 +170,7 @@ function GarminCard({ garmin, matched }) {
       <div className="card" style={{ padding: 18, opacity: matched ? 1 : 0.6 }}>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)" }} className="mono uc">{fmtDate(garmin.start_time)}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-2)" }} className="mono uc">{fmtDate(garmin.start_time)}</div>
             <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2 }}>Garmin Strength</div>
           </div>
           <span className="chip neutral mono">{fmtTime(garmin.start_time)}</span>
@@ -189,9 +189,9 @@ function GarminCard({ garmin, matched }) {
 function MiniStat({ icon, label, value, warn }) {
   return (
     <div className="stack">
-      <div className="row" style={{ gap: 4, color: "var(--ink-3)", fontSize: 10 }} className="mono uc">
+      <div className="row mono uc" style={{ gap: 4, color: "var(--ink-2)", fontSize: 11 }}>
         {icon}
-        <span className="mono uc" style={{ fontSize: 10 }}>{label}</span>
+        <span className="mono uc" style={{ fontSize: 11 }}>{label}</span>
       </div>
       <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2, color: warn ? "var(--warn)" : "var(--ink)" }}>{value}</div>
     </div>
@@ -249,7 +249,7 @@ function HevyPicker({ selected, workouts, onSelect }) {
           </div>
           {open && (
             <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 4 }}>Pick a different Hevy workout:</div>
+              <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 4 }}>Pick a different Hevy workout:</div>
               {workouts.map((w, i) => (
                 <button key={i} onClick={() => { onSelect(i); setOpen(false); }} className="btn btn-ghost btn-sm">
                   {fmtDate(w.start_time)} — {w.title} ({w.exercise_count} exercises)
@@ -264,7 +264,7 @@ function HevyPicker({ selected, workouts, onSelect }) {
   return (
     <div style={{ padding: "16px 0" }}>
       <div className="card" style={{ padding: 18, borderStyle: "dashed", borderColor: "var(--line-2)" }}>
-        <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 10 }}>No auto-match. Pick manually:</div>
+        <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 10 }}>No auto-match. Pick manually:</div>
         <div style={{ display: "grid", gap: 6 }}>
           {workouts.map((w, i) => (
             <button

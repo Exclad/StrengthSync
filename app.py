@@ -12,6 +12,7 @@ import datetime
 import csv
 import json
 import urllib.request
+import zipfile
 from urllib.error import HTTPError, URLError
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, jsonify, session, send_file
@@ -300,6 +301,19 @@ def api_donation_qr(coin):
     return send_file(buf, mimetype="image/png", max_age=86400)
 
 
+def _extract_fit_from_zip(zip_path: str, dest_path: str) -> bool:
+    """Extract the first .fit file found in a zip into dest_path. Returns True on success."""
+    with zipfile.ZipFile(zip_path, 'r') as zf:
+        fit_names = [n for n in zf.namelist() if n.lower().endswith('.fit')]
+        if not fit_names:
+            return False
+        # Prefer the largest .fit file (activity files are bigger than device logs)
+        fit_names.sort(key=lambda n: zf.getinfo(n).file_size, reverse=True)
+        with zf.open(fit_names[0]) as src, open(dest_path, 'wb') as dst:
+            dst.write(src.read())
+    return True
+
+
 def _current_fit_path() -> str | None:
     """Return the active FIT file path for the current session, respecting batch index."""
     paths = session.get("fit_paths") or ([session.get("fit_path")] if session.get("fit_path") else [])
@@ -330,12 +344,22 @@ def api_upload():
     except (zoneinfo.ZoneInfoNotFoundError, KeyError):
         return jsonify({"error": f"Invalid timezone '{timezone_str}'.", "detail": "Must be a valid IANA timezone string"}), 400
 
-    # Save all FIT files to volume-backed directory
+    # Save all FIT files to volume-backed directory (zip files are extracted automatically)
     fit_paths = []
     for i, fit_file in enumerate(fit_files):
-        path = str(UPLOADS_DIR / f"fit_{i}.fit")
-        fit_file.save(path)
-        fit_paths.append(path)
+        original_name = (fit_file.filename or "").lower()
+        if original_name.endswith('.zip'):
+            zip_tmp = str(UPLOADS_DIR / f"fit_{i}.zip")
+            fit_file.save(zip_tmp)
+            dest = str(UPLOADS_DIR / f"fit_{i}.fit")
+            if not _extract_fit_from_zip(zip_tmp, dest):
+                return jsonify({"error": f"No .fit file found inside the uploaded zip ({fit_file.filename}).", "detail": "zip contained no .fit entries"}), 400
+            os.unlink(zip_tmp)
+            fit_paths.append(dest)
+        else:
+            path = str(UPLOADS_DIR / f"fit_{i}.fit")
+            fit_file.save(path)
+            fit_paths.append(path)
 
     # Validate first FIT file (representative parse for upload response)
     try:
