@@ -6,6 +6,12 @@ import secrets
 import pathlib
 import zoneinfo
 import webbrowser
+import shutil
+import datetime
+import csv
+import json
+import urllib.request
+from urllib.error import HTTPError, URLError
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, jsonify, session, send_file
 
@@ -40,6 +46,85 @@ _COMMON_TIMEZONES = [
     "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney",
 ]
 
+# ---------------------------------------------------------------------------
+# Phase 7 constants
+# ---------------------------------------------------------------------------
+
+CACHE_PATH = pathlib.Path(__file__).parent / "data" / "hevy_cache.csv"
+
+# TODO: Replace "#" with your chosen donation platform URL (Ko-fi, GitHub Sponsors, PayPal.me)
+DONATION_URL = "#"
+
+# ---------------------------------------------------------------------------
+# Phase 7 helpers
+# ---------------------------------------------------------------------------
+
+
+def _fetch_hevy_api_workouts(api_key: str) -> list[dict]:
+    """Fetch all workout pages from Hevy API. Returns raw workout dicts.
+
+    Max 200 pages guard prevents runaway fetches. Per-request timeout: 15s.
+    """
+    all_workouts: list[dict] = []
+    page = 1
+    page_size = 10  # Conservative — API may support higher but 10 is safe
+    max_pages = 200
+    while page <= max_pages:
+        url = f"https://api.hevyapp.com/v1/workouts?page={page}&pageSize={page_size}"
+        req = urllib.request.Request(
+            url, headers={"api-key": api_key, "Accept": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+        all_workouts.extend(data.get("workouts", []))
+        if page >= data.get("page_count", 1):
+            break
+        page += 1
+    return all_workouts
+
+
+def _write_hevy_api_cache(raw_workouts: list[dict]) -> None:
+    """Persist API workouts to data/hevy_cache.csv in Hevy CSV export format.
+
+    Writes a minimal CSV matching Hevy's export schema so parse_hevy_csv()
+    can read it on future sessions (hevy_tz_mode=csv path).
+    Only the fields parse_hevy_csv() uses are written: title, start_time,
+    end_time, exercise_title, set_index, set_type, weight_kg, reps.
+    """
+    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "title", "start_time", "end_time", "description",
+        "exercise_title", "superset_id", "exercise_notes",
+        "set_index", "set_type", "weight_kg", "reps",
+        "distance_meters", "duration_seconds", "rpe",
+    ]
+    with open(CACHE_PATH, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for w in raw_workouts:
+            for ex in w.get("exercises", []):
+                ex_title = (
+                    ex.get("title")
+                    or ex.get("exercise_template", {}).get("title", "Unknown")
+                )
+                for s in ex.get("sets", []):
+                    writer.writerow({
+                        "title": w.get("title", ""),
+                        "start_time": w.get("start_time", ""),
+                        "end_time": w.get("end_time", ""),
+                        "description": w.get("description", ""),
+                        "exercise_title": ex_title,
+                        "superset_id": s.get("superset_id", ""),
+                        "exercise_notes": "",
+                        "set_index": s.get("index", ""),
+                        "set_type": s.get("set_type", "normal"),
+                        "weight_kg": s.get("weight_kg", ""),
+                        "reps": s.get("reps", ""),
+                        "distance_meters": s.get("distance_meters", ""),
+                        "duration_seconds": s.get("duration_seconds", ""),
+                        "rpe": s.get("rpe", ""),
+                    })
+
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -69,6 +154,122 @@ def api_exercises():
         for ex in mapper._GARMIN_EXERCISES
     ]
     return jsonify(result)
+
+
+@app.route("/api/hevy/cache-status")
+def api_hevy_cache_status():
+    """D-04: Returns cache file metadata for Upload screen banner."""
+    if not CACHE_PATH.exists():
+        return jsonify({"exists": False, "workout_count": 0, "last_updated": None})
+
+    mtime = CACHE_PATH.stat().st_mtime
+    last_updated = datetime.datetime.utcfromtimestamp(mtime).isoformat() + "Z"
+
+    workout_count = 0
+    try:
+        seen = set()
+        with open(CACHE_PATH, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                key = (row.get("title", ""), row.get("start_time", ""))
+                seen.add(key)
+        workout_count = len(seen)
+    except Exception:
+        workout_count = 0
+
+    return jsonify({"exists": True, "workout_count": workout_count, "last_updated": last_updated})
+
+
+@app.route("/api/hevy/use-cache", methods=["POST"])
+def api_hevy_use_cache():
+    """D-01/D-04: Activate cached CSV as the session's Hevy data source."""
+    if not CACHE_PATH.exists():
+        return jsonify({"error": "No cached export found. Please upload a Hevy CSV.", "detail": "cache missing"}), 400
+    session["hevy_csv_path"] = str(CACHE_PATH)
+    session["hevy_tz_mode"] = "csv"  # matcher.py applies normal tz localization for CSV data
+    return jsonify({"ok": True})
+
+
+@app.route("/api/hevy/test", methods=["POST"])
+def api_hevy_test():
+    """D-05: Test Hevy API key. API key must be in JSON body to avoid log leakage."""
+    data = request.get_json(silent=True) or {}
+    key = data.get("key", "").strip()
+    if not key:
+        return jsonify({"ok": False, "reason": "invalid_key"})
+
+    req = urllib.request.Request(
+        "https://api.hevyapp.com/v1/workouts/count",
+        headers={"api-key": key, "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8):
+            return jsonify({"ok": True})
+    except HTTPError as e:
+        if e.code == 401:
+            return jsonify({"ok": False, "reason": "invalid_key"})
+        if e.code == 429:
+            return jsonify({"ok": False, "reason": "rate_limited"})
+        return jsonify({"ok": False, "reason": "unreachable"})
+    except (URLError, OSError):
+        return jsonify({"ok": False, "reason": "unreachable"})
+
+
+@app.route("/api/hevy/workouts")
+def api_hevy_workouts():
+    """D-06/D-07: Fetch all workouts from Hevy API, save to cache, set session.
+
+    API key passed in X-Hevy-Key header from frontend (avoids query param log leakage).
+    Fallback chain: API fails → cached CSV → error response.
+    """
+    api_key = request.headers.get("X-Hevy-Key", "").strip()
+    if not api_key:
+        api_key = request.args.get("key", "").strip()
+
+    hevy_workouts = None
+
+    if api_key:
+        try:
+            raw_workouts = _fetch_hevy_api_workouts(api_key)
+            hevy_workouts = hevy_parser.parse_hevy_api_response(raw_workouts)
+            # Save to cache for future sessions
+            try:
+                _write_hevy_api_cache(raw_workouts)
+            except Exception:
+                pass  # Non-fatal
+        except HTTPError as e:
+            pass  # Fall through to cache fallback
+        except (URLError, OSError):
+            pass  # Fall through to cache fallback
+
+    # Fallback to cached CSV if API failed
+    if hevy_workouts is None:
+        if CACHE_PATH.exists():
+            try:
+                hevy_workouts = hevy_parser.parse_hevy_csv(str(CACHE_PATH))
+                session["hevy_csv_path"] = str(CACHE_PATH)
+                session["hevy_tz_mode"] = "csv"
+                return jsonify({
+                    "hevy_workout_count": len(hevy_workouts),
+                    "source": "cache",
+                    "warning": "Couldn't reach Hevy's API. Using your cached export instead.",
+                })
+            except Exception:
+                pass
+        # Both API and cache failed
+        return jsonify({"error": "no_cache_fallback"}), 400
+
+    # API success — set session using the saved cache file (which now has API data)
+    if not CACHE_PATH.exists():
+        return jsonify({"error": "no_cache_fallback"}), 400
+    session["hevy_csv_path"] = str(CACHE_PATH)
+    session["hevy_tz_mode"] = "utc"  # parse_hevy_api_response produces naive UTC — skip tz localization
+    return jsonify({"hevy_workout_count": len(hevy_workouts), "source": "api"})
+
+
+@app.route("/api/config")
+def api_config():
+    """Expose frontend-safe config constants (e.g. donation URL)."""
+    return jsonify({"donation_url": DONATION_URL})
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -114,6 +315,12 @@ def api_upload():
         hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy_path)
         if not hevy_workouts:
             raise ValueError("CSV parsed but contains no workouts")
+        # Phase 7 (D-04): persist copy to data/hevy_cache.csv — best-effort, non-fatal
+        try:
+            CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(tmp_hevy_path, str(CACHE_PATH))
+        except OSError:
+            pass  # Cache write failure must never block the primary upload flow
     except Exception as exc:
         return jsonify({
             "error": "This doesn't look like a Hevy export. Go to Hevy Settings → Export and try again.",
