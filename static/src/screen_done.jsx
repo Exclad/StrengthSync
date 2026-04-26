@@ -76,7 +76,7 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
             {logLines.map((line, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 6 }}>
                 <IconCheck size={12} style={{ color: 'var(--good)' }}/>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-3)' }}>{line}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-2)' }}>{line}</span>
               </div>
             ))}
           </div>
@@ -120,7 +120,7 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
                 <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
                   {new Date().toISOString().slice(0,10)}-STRENGTH-merged.fit
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6 }}>
+                <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6 }}>
                   {(fitBlob.size / 1024).toFixed(1)} KB · FIT Protocol 2.0
                 </div>
               </div>
@@ -131,14 +131,14 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
           </div>
 
           {/* Privacy notice */}
-          <div style={{ marginTop: 16, padding: '12px 16px', background: 'color-mix(in oklab, var(--accent) 8%, var(--surface))', borderRadius: 10, fontSize: 13, color: 'var(--ink-3)' }}>
+          <div style={{ marginTop: 16, padding: '12px 16px', background: 'color-mix(in oklab, var(--accent) 8%, var(--surface))', borderRadius: 10, fontSize: 14, color: 'var(--ink-2)' }}>
             All processing happens locally. Your workout data never leaves your machine — FIT parsing, mapping, and merging all run in Python on localhost.
           </div>
 
           {/* Next steps */}
           <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <StepCard n="01" title="Open Garmin Connect" sub="connect.garmin.com → Activities"/>
-            <StepCard n="02" title="Import activity" sub="Top-right · ⋯ · Import" highlight/>
+            <StepCard n="01" title="Open Garmin Connect" sub="connect.garmin.com → Activities" href="https://connect.garmin.com/app/activities"/>
+            <StepCard n="02" title="Import activity" sub="connect.garmin.com/app/import-data" highlight href="https://connect.garmin.com/app/import-data"/>
           </div>
 
           {/* Batch next / restart */}
@@ -159,17 +159,26 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
   );
 }
 
-function StepCard({ n, title, sub, highlight }) {
-  return (
-    <div className="card card-pad" style={{ background: highlight ? "var(--surface-2)" : "var(--surface)" }}>
-      <div className="row" style={{ gap: 12 }}>
-        <div className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-3)" }}>{n}</div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
-          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>{sub}</div>
-        </div>
+function StepCard({ n, title, sub, highlight, href }) {
+  const inner = (
+    <div className="row" style={{ gap: 12 }}>
+      <div className="mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--ink-2)" }}>{n}</div>
+      <div className="grow">
+        <div style={{ fontWeight: 600, fontSize: 16 }}>{title}</div>
+        <div style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 3 }}>{sub}</div>
       </div>
+      {href && <IconArrow size={16} style={{ color: 'var(--ink-3)', flexShrink: 0 }}/>}
     </div>
+  );
+  const style = { background: highlight ? "var(--surface-2)" : "var(--surface)" };
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      className="card card-pad"
+      style={{ ...style, display: 'block', textDecoration: 'none', color: 'inherit' }}>
+      {inner}
+    </a>
+  ) : (
+    <div className="card card-pad" style={style}>{inner}</div>
   );
 }
 
