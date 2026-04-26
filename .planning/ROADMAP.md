@@ -141,8 +141,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 **Plans:** 5 plans
 
 Plans:
-- [ ] 07-00-PLAN.md — Wave 0: RED test stubs for all new Phase 7 behaviors
-- [ ] 07-01-PLAN.md — Wave 1: Backend — cache-status, use-cache, hevy/test, hevy/workouts routes + parse_hevy_api_response + DONATION_URL + /api/config
-- [ ] 07-02-PLAN.md — Wave 2a: Upload screen — cache banner state machine + Hevy API section
-- [ ] 07-03-PLAN.md — Wave 2b: Settings screen — HEVY API (BETA) group + CSV cache warning + donation footer
-- [ ] 07-04-PLAN.md — Wave 3: ROADMAP update (D-09) + human visual checkpoint
+- [x] 07-00-PLAN.md — Wave 0: RED test stubs for all new Phase 7 behaviors
+- [x] 07-01-PLAN.md — Wave 1: Backend — cache-status, use-cache, hevy/test, hevy/workouts routes + parse_hevy_api_response + BTC/ETH addresses + /api/config
+- [x] 07-02-PLAN.md — Wave 2a: Upload screen — cache banner state machine + Hevy API section
+- [x] 07-03-PLAN.md — Wave 2b: Settings screen — HEVY API (BETA) group + CSV cache warning
+- [x] 07-04-PLAN.md — Wave 3: ROADMAP update (D-09) + human visual checkpoint (approved 2026-04-26)
