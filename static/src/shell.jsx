@@ -90,9 +90,9 @@ function WelcomeModal({ onClose }) {
           <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
             <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📤</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 3 }}>Delete the original, upload the merged file</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 3 }}>Verify first, then delete the original</div>
               <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
-                After downloading your merged <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>.fit</code> file, go to Garmin Connect, <strong>delete the original strength training activity</strong>, then upload the merged file in its place. This replaces the generic activity with your full exercise detail.
+                Use the <strong>Preview merge</strong> step (Step 4) to check all exercise names, sets, reps, and weights before exporting. Once you're happy, <strong>delete the original activity from Garmin Connect</strong>, then upload the merged file. Garmin blocks re-uploading the same timestamp, so you must delete first.
               </div>
             </div>
           </div>

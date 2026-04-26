@@ -12,11 +12,11 @@ Garmin records your heart rate, calories, and GPS during a workout but labels ev
 
 ## ⚠️ Important — read before your first sync
 
-### 1. Delete the original Garmin activity, then upload the merged file
+### 1. Verify in the Preview step, then delete the original
 
-After exporting your merged `.fit` file, go to **Garmin Connect → Activities**, open the original strength training workout, and **delete it**. Then upload the merged file in its place. This replaces the generic activity with your full exercise detail — reps, weight, and exercise names.
+**Before you export:** use the **Preview merge** screen (Step 4 in the app) to review all exercise names, sets, reps, and weights alongside your Garmin biometrics. This is your chance to catch any mapping issues before committing.
 
-If you upload the merged file *without* deleting the original, you'll end up with two duplicate activities.
+**When you're ready to upload:** go to **Garmin Connect → Activities**, open the original strength training workout, and **delete it**. Then upload the merged file. Garmin detects duplicate activity timestamps and will reject the upload if the original still exists — so you must delete first.
 
 ### 2. Strava users — expect a duplicate activity
 
