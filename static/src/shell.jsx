@@ -24,21 +24,21 @@ function DonateModal({ coin, address, label, symbol, onClose }) {
         style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, boxShadow: 'var(--shadow-lg)', padding: 32, width: 320, position: 'relative' }}
       >
         {/* Close */}
-        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-2)', fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 999, background: `${color}22`, border: `1.5px solid ${color}55`, display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 800, color, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 999, background: `${color}22`, border: `2px solid ${color}66`, display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 800, color, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
             {symbol}
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{label}</div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Scan or copy to donate</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{label}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>Scan or copy to donate</div>
           </div>
         </div>
 
         {/* QR code */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: 12, display: 'inline-block', margin: '0 auto 20px', display: 'flex', justifyContent: 'center', border: `2px solid ${color}33` }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: 12, marginBottom: 20, display: 'flex', justifyContent: 'center', border: `2px solid ${color}44` }}>
           <img
             src={`/api/donation/qr/${coin}?v=2`}
             alt={`${label} QR code`}
@@ -48,13 +48,13 @@ function DonateModal({ coin, address, label, symbol, onClose }) {
         </div>
 
         {/* Address */}
-        <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11, color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: 14, lineHeight: 1.6, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 8, userSelect: 'all' }}>
+        <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 12, color: 'var(--ink)', wordBreak: 'break-all', marginBottom: 14, lineHeight: 1.6, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 8, userSelect: 'all', border: '1px solid var(--line)' }}>
           {address}
         </div>
 
         {/* ERC-20 note */}
         {coin === 'eth' && (
-          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 14, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 14, lineHeight: 1.5 }}>
             ✦ Also accepts USDC, USDT, DAI and other ERC-20 tokens.
           </div>
         )}
@@ -136,11 +136,24 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
               >{label}</button>
             ))}
           </div>
-          {/* Donation pills — between nav and theme toggle */}
-          <div className="row" style={{ gap: 6 }}>
-            {btcAddress && <DonateBtn coin="btc" address={btcAddress} label="Bitcoin (BTC)" symbol="₿" />}
-            {ethAddress && <DonateBtn coin="eth" address={ethAddress} label="Ethereum / ERC-20" symbol="Ξ" />}
-          </div>
+          {/* Donate group — labelled container between nav and theme toggle */}
+          {(btcAddress || ethAddress) && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '4px 6px 4px 11px',
+              borderRadius: 999,
+              border: '1.5px solid rgba(247,147,26,0.35)',
+              background: 'rgba(247,147,26,0.07)',
+            }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.09em',
+                textTransform: 'uppercase', color: '#F7931A',
+                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+              }}>Donate</span>
+              {btcAddress && <DonateBtn coin="btc" address={btcAddress} label="Bitcoin (BTC)" symbol="₿" />}
+              {ethAddress && <DonateBtn coin="eth" address={ethAddress} label="Ethereum / ERC-20" symbol="Ξ" />}
+            </div>
+          )}
         </div>
 
         <div className="topbar-right">
