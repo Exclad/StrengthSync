@@ -118,7 +118,7 @@ Click **Settings** in the top nav to configure:
 | **Export Filename** | Template for downloaded filenames. Use `{date}` and `{workout}` as placeholders. |
 | **Output Folder** | Label for where files are saved (informational). |
 | **CSV Cache Warning** | Show an OUTDATED warning when your cached Hevy export is older than N days (default 7). |
-| **Hevy API (Beta)** | Paste your Hevy API key to fetch workouts directly without uploading a CSV each time. |
+| **Hevy API (Beta)** | Paste your Hevy API key to fetch workouts directly without uploading a CSV each time. Use the **Test connection** button to verify your key is valid before syncing. |
 | **Danger Zone** | Clear all saved exercise mappings and start fresh. |
 
 ---
@@ -172,7 +172,7 @@ StrengthSync/
 ## Limitations & known behaviour
 
 - **Intensity minutes** — Garmin does not award intensity minutes to manually-uploaded FIT files regardless of heart rate data. This is a Garmin platform limitation.
-- **Set timing** — Hevy does not record per-set timestamps. The merged file distributes set times linearly within the Garmin workout window.
+- **Set timing** — Hevy does not record per-set timestamps. Each set in the merged file uses the original timestamp from your Garmin activity, so your workout timeline stays accurate. If Hevy recorded more sets than Garmin's original activity tracked, the extra sets are distributed evenly across the remaining workout window.
 - **Cardio exercises** — Treadmill, stair machine, and other cardio rows in the Hevy CSV are automatically skipped.
 - **Single user** — Local single-user app. No login, no cloud sync.
 - **Hevy API** — The Hevy API is unofficial and may change without notice. CSV export is always the reliable fallback.
