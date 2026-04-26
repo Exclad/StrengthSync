@@ -281,7 +281,7 @@ def api_donation_qr(coin):
     address = addresses.get(coin.lower())
     if not address:
         return jsonify({"error": "unknown coin"}), 404
-    qr = qrcode.QRCode(box_size=6, border=2)
+    qr = qrcode.QRCode(box_size=10, border=2)
     qr.add_data(address)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")

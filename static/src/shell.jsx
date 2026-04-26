@@ -1,61 +1,72 @@
 const { useState, useEffect, useMemo, useRef } = React;
 
-function DonatePopover({ coin, address, label, symbol }) {
-  const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const wrapRef = useRef(null);
+// Coin brand colors
+const COIN_COLORS = { btc: '#F7931A', eth: '#627EEA' };
 
+function DonateModal({ coin, address, label, symbol, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const color = COIN_COLORS[coin];
+
+  // Close on Escape
   useEffect(() => {
-    if (!open) return;
-    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative' }}>
-      <button
-        className="icon-btn"
-        onClick={() => setOpen(o => !o)}
-        aria-label={`Donate ${label}`}
-        title={`Donate ${label}`}
-        style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 13, color: open ? 'var(--ink)' : 'var(--ink-3)' }}
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, boxShadow: 'var(--shadow-lg)', padding: 32, width: 320, position: 'relative' }}
       >
-        {symbol}
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-          background: 'var(--surface)', border: '1px solid var(--line)',
-          borderRadius: 14, boxShadow: 'var(--shadow-lg)',
-          padding: 20, width: 260, zIndex: 200,
-        }}>
-          <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 12 }}>
-            {label}
+        {/* Close */}
+        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 999, background: `${color}22`, border: `1.5px solid ${color}55`, display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 800, color, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
+            {symbol}
           </div>
-          <img
-            src={`/api/donation/qr/${coin}`}
-            alt={`${label} QR code`}
-            width={128} height={128}
-            style={{ display: 'block', margin: '0 auto 14px', borderRadius: 6, background: '#fff', padding: 4 }}
-          />
-          <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10, color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: 10, lineHeight: 1.5 }}>
-            {address}
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{label}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Scan or copy to donate</div>
           </div>
-          {coin === 'eth' && (
-            <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10, lineHeight: 1.5 }}>
-              Also accepts USDC, USDT, DAI and other ERC-20 tokens.
-            </div>
-          )}
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ width: '100%', justifyContent: 'center' }}
-            onClick={() => { navigator.clipboard.writeText(address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          >
-            {copied ? '✓ Copied!' : 'Copy address'}
-          </button>
         </div>
-      )}
+
+        {/* QR code */}
+        <div style={{ background: '#fff', borderRadius: 12, padding: 12, display: 'inline-block', margin: '0 auto 20px', display: 'flex', justifyContent: 'center', border: `2px solid ${color}33` }}>
+          <img
+            src={`/api/donation/qr/${coin}?v=2`}
+            alt={`${label} QR code`}
+            width={200} height={200}
+            style={{ display: 'block', borderRadius: 4 }}
+          />
+        </div>
+
+        {/* Address */}
+        <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11, color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: 14, lineHeight: 1.6, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 8, userSelect: 'all' }}>
+          {address}
+        </div>
+
+        {/* ERC-20 note */}
+        {coin === 'eth' && (
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 14, lineHeight: 1.5 }}>
+            ✦ Also accepts USDC, USDT, DAI and other ERC-20 tokens.
+          </div>
+        )}
+
+        {/* Copy button */}
+        <button
+          onClick={() => { navigator.clipboard.writeText(address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+          style={{ width: '100%', padding: '11px 16px', borderRadius: 10, border: `1.5px solid ${copied ? color : 'var(--line-2)'}`, background: copied ? `${color}18` : 'transparent', color: copied ? color : 'var(--ink-2)', fontFamily: 'inherit', fontWeight: 600, fontSize: 14, cursor: 'pointer', transition: 'all .15s ease' }}
+        >
+          {copied ? '✓ Copied to clipboard!' : 'Copy address'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -63,6 +74,7 @@ function DonatePopover({ coin, address, label, symbol }) {
 function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, children }) {
   const [btcAddress, setBtcAddress] = useState('');
   const [ethAddress, setEthAddress] = useState('');
+  const [donateOpen, setDonateOpen] = useState(null); // null | 'btc' | 'eth'
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(d => {
@@ -78,8 +90,36 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
     { key: 3, label: "Preview merge" },
     { key: 4, label: "Export" },
   ];
+
+  const DonateBtn = ({ coin, address, label, symbol }) => {
+    const color = COIN_COLORS[coin];
+    return (
+      <button
+        onClick={() => setDonateOpen(coin)}
+        aria-label={`Donate ${label}`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '6px 13px', borderRadius: 999,
+          border: `1.5px solid ${color}55`,
+          background: `${color}18`,
+          color, fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+          fontWeight: 800, fontSize: 13, cursor: 'pointer',
+          transition: 'all .15s ease', letterSpacing: '-0.01em',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = `${color}30`; e.currentTarget.style.borderColor = `${color}99`; }}
+        onMouseLeave={e => { e.currentTarget.style.background = `${color}18`; e.currentTarget.style.borderColor = `${color}55`; }}
+      >
+        <span style={{ fontSize: 15 }}>{symbol}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{coin.toUpperCase()}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="app">
+      {donateOpen === 'btc' && btcAddress && <DonateModal coin="btc" address={btcAddress} label="Bitcoin (BTC)" symbol="₿" onClose={() => setDonateOpen(null)} />}
+      {donateOpen === 'eth' && ethAddress && <DonateModal coin="eth" address={ethAddress} label="Ethereum / ERC-20" symbol="Ξ" onClose={() => setDonateOpen(null)} />}
+
       <div className="topbar">
         <div className="row" style={{ gap: 16 }}>
           <div className="brand">
@@ -96,11 +136,14 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
               >{label}</button>
             ))}
           </div>
+          {/* Donation pills — between nav and theme toggle */}
+          <div className="row" style={{ gap: 6 }}>
+            {btcAddress && <DonateBtn coin="btc" address={btcAddress} label="Bitcoin (BTC)" symbol="₿" />}
+            {ethAddress && <DonateBtn coin="eth" address={ethAddress} label="Ethereum / ERC-20" symbol="Ξ" />}
+          </div>
         </div>
 
         <div className="topbar-right">
-          {btcAddress && <DonatePopover coin="btc" address={btcAddress} label="Bitcoin (BTC)" symbol="₿" />}
-          {ethAddress && <DonatePopover coin="eth" address={ethAddress} label="Ethereum / ERC-20" symbol="Ξ" />}
           <button
             className="icon-btn"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
