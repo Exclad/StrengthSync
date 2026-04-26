@@ -6,6 +6,28 @@ Garmin records your heart rate, calories, and GPS during a workout but labels ev
 
 > All processing is local. Your files never leave your machine.
 
+![StrengthSync upload screen](docs/screenshots/01-upload.png)
+
+---
+
+## ⚠️ Important — read before your first sync
+
+### 1. Delete the original Garmin activity, then upload the merged file
+
+After exporting your merged `.fit` file, go to **Garmin Connect → Activities**, open the original strength training workout, and **delete it**. Then upload the merged file in its place. This replaces the generic activity with your full exercise detail — reps, weight, and exercise names.
+
+If you upload the merged file *without* deleting the original, you'll end up with two duplicate activities.
+
+### 2. Strava users — expect a duplicate activity
+
+If your Garmin account is linked to Strava, uploading the merged FIT file to Garmin Connect will **automatically sync to Strava as a new activity**. You'll need to go to Strava and manually delete that duplicate after it appears.
+
+> Tip: disconnect your Garmin → Strava auto-sync, upload the merged file to Garmin Connect, then re-enable auto-sync — or just delete the Strava duplicate.
+
+### 3. Intensity minutes won't change
+
+Garmin does not award intensity minutes to manually uploaded FIT files, even when the heart rate data is present and accurate. This is a Garmin platform limitation and cannot be worked around by any third-party tool.
+
 ---
 
 ## Requirements
@@ -72,6 +94,8 @@ On the **Sync** screen:
 - Select your timezone (auto-detected from your browser)
 - Click **Continue**
 
+After your first sync, StrengthSync caches your Hevy CSV so you don't need to re-upload it every time.
+
 ---
 
 ### Step 3 — Match workouts
@@ -92,6 +116,8 @@ The app fuzzy-matches your Hevy exercise names to Garmin's exercise library. Eac
 
 Confirmed mappings are saved so you only map each exercise once across all future syncs.
 
+![Exercise library](docs/screenshots/05-library.png)
+
 ---
 
 ### Step 5 — Preview & export
@@ -103,8 +129,10 @@ Review the side-by-side comparison of Garmin biometrics vs. Hevy exercise detail
 ### Step 6 — Upload to Garmin Connect
 
 1. Go to [connect.garmin.com](https://connect.garmin.com)
-2. Click the **+** upload button (top right)
-3. Drag the downloaded `merged.fit` file
+2. **Delete** the original strength training activity (see warning at top)
+3. Click the **+** upload button (top right)
+4. Drag the downloaded `merged-*.fit` file
+5. If you use Strava: **delete the duplicate** that auto-syncs
 
 ---
 
@@ -118,8 +146,10 @@ Click **Settings** in the top nav to configure:
 | **Export Filename** | Template for downloaded filenames. Use `{date}` and `{workout}` as placeholders. |
 | **Output Folder** | Label for where files are saved (informational). |
 | **CSV Cache Warning** | Show an OUTDATED warning when your cached Hevy export is older than N days (default 7). |
-| **Hevy API (Beta)** | Paste your Hevy API key to fetch workouts directly without uploading a CSV each time. Use the **Test connection** button to verify your key is valid before syncing. |
+| **Hevy API (Beta)** | Paste your Hevy API key to fetch workouts directly without uploading a CSV each time. Use the **Test connection** button to verify your key. |
 | **Danger Zone** | Clear all saved exercise mappings and start fresh. |
+
+![Settings](docs/screenshots/02-settings.png)
 
 ---
 
@@ -127,6 +157,8 @@ Click **Settings** in the top nav to configure:
 
 - **Library** — all your confirmed exercise mappings, searchable and editable
 - **History** — all merged FIT files in the `output/` folder, re-downloadable anytime
+
+![History](docs/screenshots/04-history.png)
 
 ---
 
@@ -171,8 +203,10 @@ StrengthSync/
 
 ## Limitations & known behaviour
 
-- **Intensity minutes** — Garmin does not award intensity minutes to manually-uploaded FIT files regardless of heart rate data. This is a Garmin platform limitation.
-- **Set timing** — Hevy does not record per-set timestamps. Each set in the merged file uses the original timestamp from your Garmin activity, so your workout timeline stays accurate. If Hevy recorded more sets than Garmin's original activity tracked, the extra sets are distributed evenly across the remaining workout window.
+- **Intensity minutes** — Garmin does not award intensity minutes to manually-uploaded FIT files regardless of heart rate data. This is a Garmin platform limitation with no workaround.
+- **Duplicate activity** — Uploading the merged file does not replace the original. You must delete the original Garmin activity manually before or after uploading.
+- **Strava auto-sync** — Uploading to Garmin Connect triggers Strava sync, creating a duplicate. Delete the Strava duplicate manually.
+- **Set timing** — Hevy does not record per-set timestamps. Sets are distributed linearly across your workout window using Garmin's original timestamps.
 - **Cardio exercises** — Treadmill, stair machine, and other cardio rows in the Hevy CSV are automatically skipped.
 - **Single user** — Local single-user app. No login, no cloud sync.
 - **Hevy API** — The Hevy API is unofficial and may change without notice. CSV export is always the reliable fallback.
@@ -189,6 +223,8 @@ StrengthSync/
 
 **Mapping seems wrong** — Go to the Map step, click the exercise name, and search for the correct Garmin exercise. Changes save immediately.
 
+**I have two activities on Garmin Connect / Strava** — You uploaded the merged file without deleting the original. Delete the original Garmin activity (the one with no exercise names) and the Strava duplicate if applicable.
+
 **start.bat does nothing / closes immediately** — Make sure you ran `setup.bat` first. If Python isn't found, reinstall Python with **"Add Python to PATH"** checked.
 
 ---
@@ -204,7 +240,7 @@ bc1qhjqappn6ere3239dqnzksuectktp62pdhu77qt
 
 **Ethereum (ETH) / ERC-20 tokens**
 ```
-0x2716b0D80465a98Ada440b0c440f43c23E1Bd717
+0x2716b0D80465a98Ada440b0c440F43c23E1Bd717
 ```
 
 > The ETH address accepts Ether and any ERC-20 token (USDC, USDT, DAI, etc.) on the Ethereum mainnet.

@@ -71,10 +71,69 @@ function DonateModal({ coin, address, label, symbol, onClose }) {
   );
 }
 
+function WelcomeModal({ onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, boxShadow: 'var(--shadow-lg)', padding: 32, width: 480, maxWidth: '95vw', position: 'relative' }}
+      >
+        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-2)', fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+
+        <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--ink)', marginBottom: 6 }}>Before you sync</div>
+        <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 20, lineHeight: 1.5 }}>A few things to know so your data lands correctly.</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📤</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 3 }}>Delete the original, upload the merged file</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
+                After downloading your merged <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>.fit</code> file, go to Garmin Connect, <strong>delete the original strength training activity</strong>, then upload the merged file in its place. This replaces the generic activity with your full exercise detail.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>🔄</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 3 }}>Strava users — expect a duplicate</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
+                If your Garmin account is linked to Strava, uploading the merged file will auto-sync to Strava as a <em>new</em> activity. You'll need to <strong>delete that duplicate from Strava</strong> manually after it appears.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>⚡</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 3 }}>Intensity minutes won't update</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55 }}>
+                Garmin does not award intensity minutes to manually uploaded FIT files — even with accurate heart rate data. This is a Garmin platform limitation, not a bug in StrengthSync.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{ marginTop: 24, width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontFamily: 'inherit', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+        >
+          Got it — let's sync
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, children }) {
   const [btcAddress, setBtcAddress] = useState('');
   const [ethAddress, setEthAddress] = useState('');
   const [donateOpen, setDonateOpen] = useState(null); // null | 'btc' | 'eth'
+  const [showWelcome, setShowWelcome] = useState(() => !sessionStorage.getItem('ss-welcome-seen'));
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(d => {
@@ -115,8 +174,11 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
     );
   };
 
+  const dismissWelcome = () => { sessionStorage.setItem('ss-welcome-seen', '1'); setShowWelcome(false); };
+
   return (
     <div className="app">
+      {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
       {donateOpen === 'btc' && btcAddress && <DonateModal coin="btc" address={btcAddress} label="Bitcoin (BTC)" symbol="₿" onClose={() => setDonateOpen(null)} />}
       {donateOpen === 'eth' && ethAddress && <DonateModal coin="eth" address={ethAddress} label="Ethereum / ERC-20" symbol="Ξ" onClose={() => setDonateOpen(null)} />}
 
