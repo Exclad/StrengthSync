@@ -67,6 +67,39 @@ Garmin does not award intensity minutes to manually uploaded FIT files, even whe
 
 The app opens automatically at **http://localhost:5000**
 
+### Docker (NAS / always-on server)
+
+If you want StrengthSync running permanently — on a NAS, home server, or VPS — use Docker:
+
+```bash
+git clone https://github.com/Exclad/StrengthSync.git
+cd StrengthSync
+docker compose up -d
+```
+
+The app will be available at **http://your-server-ip:5000**
+
+Your data is stored in two folders on the host that survive container restarts and updates:
+
+| Folder | Contents |
+|--------|----------|
+| `./data/` | Exercise mapping database + cached Hevy CSV |
+| `./output/` | All merged FIT files (re-downloadable from History tab) |
+
+**To update to a new version:**
+```bash
+git pull
+docker compose up -d --build
+```
+
+**To change the port** (e.g. if 5000 is taken), edit `docker-compose.yml`:
+```yaml
+ports:
+  - "8080:5000"   # access on :8080, container still listens on 5000
+```
+
+> Note: the browser does not auto-open in Docker mode. Navigate to the app URL manually.
+
 ---
 
 ## How to use

@@ -1,0 +1,16 @@
+.venv/
+.git/
+.planning/
+.claude/
+__pycache__/
+*.pyc
+*.pyo
+docs/
+tests/
+output/
+data/hevy_cache.csv
+data/exercise_mappings.db
+original_garmin.fit
+original_hevy.csv
+*.fit
+*.csv

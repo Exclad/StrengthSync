@@ -1,0 +1,15 @@
+services:
+  strengthsync:
+    build: .
+    container_name: strengthsync
+    ports:
+      - "5000:5000"
+    volumes:
+      # exercise mapping database and hevy CSV cache persist across restarts
+      - ./data:/app/data
+      # merged FIT files persist and are re-downloadable from the History tab
+      - ./output:/app/output
+    environment:
+      - HOST=0.0.0.0
+      - PORT=5000
+    restart: unless-stopped
