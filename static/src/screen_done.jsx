@@ -1,5 +1,5 @@
 // Screen 5 — Done / download
-function ScreenDone({ onRestart, state }) {
+function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
   const [phase, setPhase] = useState('generating');  // 'generating' | 'ready' | 'error'
   const [exportError, setExportError] = useState(null);
   const [fitBlob, setFitBlob] = useState(null);
@@ -39,13 +39,17 @@ function ScreenDone({ onRestart, state }) {
       });
   }, []);
 
+  const isBatch = fitCount > 1;
+  const remaining = fitCount - (fitIndex + 1);
+
   const handleDownload = () => {
     if (!fitBlob) return;
     const url = URL.createObjectURL(fitBlob);
     const a = document.createElement('a');
     const today = new Date().toISOString().slice(0, 10);
+    const suffix = isBatch ? `-${fitIndex + 1}of${fitCount}` : '';
     a.href = url;
-    a.download = `${today}-STRENGTH-merged.fit`;
+    a.download = `${today}-STRENGTH-merged${suffix}.fit`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -137,10 +141,15 @@ function ScreenDone({ onRestart, state }) {
             <StepCard n="02" title="Import activity" sub="Top-right · ⋯ · Import" highlight/>
           </div>
 
-          {/* Restart */}
-          <div style={{ marginTop: 24, textAlign: 'center' }}>
+          {/* Batch next / restart */}
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 12, alignItems: 'center' }}>
+            {remaining > 0 && (
+              <button className="btn btn-dark btn-lg" onClick={onNextFit}>
+                Next workout ({remaining} remaining) <IconArrow size={16}/>
+              </button>
+            )}
             <button className="btn btn-ghost" onClick={onRestart}>
-              Sync another workout
+              {remaining > 0 ? 'Start over' : 'Sync another workout'}
             </button>
           </div>
         </div>

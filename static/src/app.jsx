@@ -43,6 +43,8 @@ function App() {
     matchResult: null,
     exercises: null,
     previewResult: null,
+    fitIndex: 0,
+    fitCount: 1,
   });
   const update = (patch) => setAppState(s => ({ ...s, ...patch }));
 
@@ -104,9 +106,22 @@ function App() {
     setAppState({
       fitFiles: [], hevyMode: null, hevyFile: null, dragging: false,
       timezone: '', uploadResult: null, matchResult: null, exercises: null, previewResult: null,
+      fitIndex: 0, fitCount: 1,
     });
     setStep(0);
     localStorage.removeItem('ss-step');
+  };
+
+  const handleNextFit = async () => {
+    try {
+      const r = await fetch('/api/next-fit', { method: 'POST' });
+      const body = await r.json();
+      if (!r.ok) { handleRestart(); return; }
+      update({ fitIndex: body.fit_index, fitCount: body.fit_count, matchResult: null, exercises: null, previewResult: null });
+      setStep(1);
+    } catch {
+      handleRestart();
+    }
   };
 
   return (
@@ -117,7 +132,7 @@ function App() {
         {page === "settings" && <ScreenSettings onBack={() => setPage("sync")} setPage={setPage}/>}
         {page === "sync" && <div data-screen-label={`0${step+1} ${["Upload","Match","Map","Preview","Export"][step]}`}>
           {step === 0 && <ScreenUpload
-            onNext={(data) => { update({ uploadResult: data }); setStep(1); }}
+            onNext={(data) => { update({ uploadResult: data, fitIndex: data.fitIndex || 0, fitCount: data.fitCount || 1 }); setStep(1); }}
             state={appState}
             update={update}
             setPage={setPage}
@@ -139,7 +154,7 @@ function App() {
             onBack={back}
             state={appState}
           />}
-          {step === 4 && <ScreenDone state={appState} update={update} onRestart={handleRestart}/>}
+          {step === 4 && <ScreenDone state={appState} update={update} onRestart={handleRestart} onNextFit={handleNextFit} fitIndex={appState.fitIndex} fitCount={appState.fitCount}/>}
         </div>}
       </Shell>
 

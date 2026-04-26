@@ -300,16 +300,23 @@ def api_donation_qr(coin):
     return send_file(buf, mimetype="image/png", max_age=86400)
 
 
+def _current_fit_path() -> str | None:
+    """Return the active FIT file path for the current session, respecting batch index."""
+    paths = session.get("fit_paths") or ([session.get("fit_path")] if session.get("fit_path") else [])
+    idx = session.get("fit_index", 0)
+    return paths[idx] if paths and idx < len(paths) else None
+
+
 @app.route("/api/upload", methods=["POST"])
 def api_upload():
-    if "fit_file" not in request.files:
+    fit_files = request.files.getlist("fit_file")
+    if not fit_files or all(f.filename == "" for f in fit_files):
         return jsonify({"error": "No FIT file provided.", "detail": "fit_file field missing"}), 400
 
     use_session_hevy = request.form.get("use_session_hevy", "").lower() == "true"
     if "hevy_csv" not in request.files and not use_session_hevy:
         return jsonify({"error": "No Hevy CSV provided.", "detail": "hevy_csv field missing"}), 400
 
-    fit_file = request.files["fit_file"]
     timezone_str = request.form.get("timezone", "").strip()
     weight_unit = request.form.get("weight_unit", "kg").strip().lower()
     if weight_unit not in ("kg", "lbs"):
@@ -323,13 +330,16 @@ def api_upload():
     except (zoneinfo.ZoneInfoNotFoundError, KeyError):
         return jsonify({"error": f"Invalid timezone '{timezone_str}'.", "detail": "Must be a valid IANA timezone string"}), 400
 
-    # Save FIT to volume-backed directory so it survives container restarts
-    fit_path = str(UPLOADS_DIR / "current.fit")
-    fit_file.save(fit_path)
+    # Save all FIT files to volume-backed directory
+    fit_paths = []
+    for i, fit_file in enumerate(fit_files):
+        path = str(UPLOADS_DIR / f"fit_{i}.fit")
+        fit_file.save(path)
+        fit_paths.append(path)
 
-    # Validate FIT file
+    # Validate first FIT file (representative parse for upload response)
     try:
-        fit_workout = fit_parser.parse_fit_file(fit_path)
+        fit_workout = fit_parser.parse_fit_file(fit_paths[0])
     except Exception as exc:
         err_str = str(exc).lower()
         if "not a fit file" in err_str or "magic" in err_str or "header" in err_str:
@@ -375,7 +385,9 @@ def api_upload():
         hevy_csv_path = str(CACHE_PATH)
 
     # Store minimal state in session (only string keys — D-24)
-    session["fit_path"] = fit_path
+    session["fit_paths"] = fit_paths
+    session["fit_index"] = 0
+    session["fit_path"] = fit_paths[0]  # backwards-compat alias
     session["hevy_csv_path"] = hevy_csv_path
     session["timezone"] = timezone_str
     session["weight_unit"] = weight_unit
@@ -415,12 +427,26 @@ def api_upload():
         for w in hevy_workouts
     ]
 
-    return jsonify({"fitWorkout": fit_json, "hevyWorkouts": hevy_json})
+    return jsonify({"fitWorkout": fit_json, "hevyWorkouts": hevy_json, "fitCount": len(fit_paths), "fitIndex": 0})
+
+
+@app.route("/api/next-fit", methods=["POST"])
+def api_next_fit():
+    """Advance to the next FIT file in a batch upload. Returns new index and count."""
+    paths = session.get("fit_paths", [])
+    if not paths:
+        return jsonify({"error": "No batch upload in session."}), 400
+    idx = session.get("fit_index", 0) + 1
+    if idx >= len(paths):
+        return jsonify({"error": "No more FIT files in this batch."}), 400
+    session["fit_index"] = idx
+    session["fit_path"] = paths[idx]
+    return jsonify({"fit_index": idx, "fit_count": len(paths)})
 
 
 @app.route("/api/match", methods=["POST"])
 def api_match():
-    fit_path = session.get("fit_path")
+    fit_path = _current_fit_path()
     hevy_csv_path = session.get("hevy_csv_path")
     timezone_str = session.get("timezone")
     if not fit_path or not hevy_csv_path or not timezone_str:
@@ -523,7 +549,7 @@ def api_map_confirm():
 
 @app.route("/api/preview", methods=["POST"])
 def api_preview():
-    fit_path = session.get("fit_path")
+    fit_path = _current_fit_path()
     hevy_csv_path = session.get("hevy_csv_path")
     timezone_str = session.get("timezone")
     if not fit_path or not hevy_csv_path or not timezone_str:
@@ -593,7 +619,7 @@ def api_preview():
 
 @app.route("/api/export", methods=["POST"])
 def api_export():
-    fit_path = session.get("fit_path")
+    fit_path = _current_fit_path()
     hevy_csv_path = session.get("hevy_csv_path")
     timezone_str = session.get("timezone")
     if not fit_path or not hevy_csv_path or not timezone_str:

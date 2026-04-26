@@ -90,7 +90,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
     setUploadError(null);
     setUploading(true);
     const formData = new FormData();
-    formData.append('fit_file', state.fitFiles[0]._file);
+    state.fitFiles.forEach(f => formData.append('fit_file', f._file));
     if (!usingCache && !hevyFromApi) {
       // Normal path: user uploaded a new CSV
       if (state.hevyFile) formData.append('hevy_csv', state.hevyFile);
