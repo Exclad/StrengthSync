@@ -184,7 +184,7 @@ function Shell({ step, setStep, theme, setTheme, tweaksOn, page, setPage, childr
 
       <div className="topbar">
         <div className="row" style={{ gap: 16 }}>
-          <div className="brand">
+          <div className="brand" onClick={() => { setPage('sync'); }} style={{ cursor: 'pointer' }}>
             <div className="brand-mark"><span>S</span></div>
             <div>StrengthSync</div>
           </div>
