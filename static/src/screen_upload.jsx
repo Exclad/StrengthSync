@@ -314,8 +314,8 @@ function ScreenUpload({ onNext, state, update, setPage }) {
 
           {/* Phase 7 D-05/D-07: Hevy API section */}
           <div style={{ borderTop: '1px solid var(--line)', marginTop: 16, paddingTop: 12 }}>
-            <div className="row" style={{ gap: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+            <div className="row" style={{ gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink-2)' }}>
                 OR CONNECT VIA API
               </span>
               <span className="chip neutral" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>BETA</span>
@@ -323,9 +323,9 @@ function ScreenUpload({ onNext, state, update, setPage }) {
 
             {!hevyApiKey ? (
               /* No API key stored — prompt to go to Settings */
-              <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: '0 0 8px' }}>
+              <p style={{ fontSize: 14, color: 'var(--ink-2)', margin: '0 0 8px' }}>
                 Enter your Hevy API key in Settings → Hevy API to fetch workouts directly.{' '}
-                <button className="btn btn-ghost btn-sm" onClick={() => setPage && setPage('settings')} style={{ fontSize: 12, padding: '2px 8px' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setPage && setPage('settings')} style={{ fontSize: 13, padding: '2px 8px' }}>
                   Open Settings
                 </button>
               </p>
@@ -333,7 +333,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
               /* API fetch succeeded */
               <div className="row" style={{ gap: 8, alignItems: 'center' }}>
                 <span className="chip good" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>CACHED</span>
-                <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Workouts fetched from Hevy API</span>
+                <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>Workouts fetched from Hevy API</span>
               </div>
             ) : (
               /* API key stored — show fetch button */

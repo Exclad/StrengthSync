@@ -1,3 +1,4 @@
+import io
 import os
 import sys
 import threading
@@ -270,6 +271,24 @@ def api_hevy_workouts():
 def api_config():
     """Expose frontend-safe config constants."""
     return jsonify({"btc_address": BTC_ADDRESS, "eth_address": ETH_ADDRESS})
+
+
+@app.route("/api/donation/qr/<coin>")
+def api_donation_qr(coin):
+    """Return a QR code PNG for BTC or ETH donation address."""
+    import qrcode
+    addresses = {"btc": BTC_ADDRESS, "eth": ETH_ADDRESS}
+    address = addresses.get(coin.lower())
+    if not address:
+        return jsonify({"error": "unknown coin"}), 404
+    qr = qrcode.QRCode(box_size=6, border=2)
+    qr.add_data(address)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return send_file(buf, mimetype="image/png", max_age=86400)
 
 
 @app.route("/api/upload", methods=["POST"])

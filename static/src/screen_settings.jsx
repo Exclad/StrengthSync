@@ -15,19 +15,13 @@ function ScreenSettings({ onBack, setPage }) {
   const [mappingCount, setMappingCount] = useState(0);
   const tzWrapRef = useRef(null);
 
-  // Phase 7: Hevy API settings (Group E) + donate card
+  // Phase 7: Hevy API settings (Group E) + cache warning
   const [hevyApiKey, setHevyApiKey] = useState(() => localStorage.getItem('ss-hevy-api-key') || '');
   const [cacheWarningDays, setCacheWarningDays] = useState(
     () => parseInt(localStorage.getItem('ss-cache-warning-days') || '7', 10)
   );
   const [apiTestResult, setApiTestResult] = useState(null);  // null | {ok, reason}
   const [apiTesting, setApiTesting] = useState(false);
-  const [btcAddress, setBtcAddress] = useState('');
-  const [ethAddress, setEthAddress] = useState('');
-  const [btcCopied, setBtcCopied] = useState(false);
-  const [ethCopied, setEthCopied] = useState(false);
-  const btcQrRef = useRef(null);
-  const ethQrRef = useRef(null);
 
   // Close timezone dropdown on outside click
   useEffect(() => {
@@ -57,29 +51,6 @@ function ScreenSettings({ onBack, setPage }) {
     return () => clearTimeout(t);
   }, [filenamePattern]);
 
-  // Fetch BTC/ETH addresses from /api/config
-  useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(d => {
-      setBtcAddress(d.btc_address || '');
-      setEthAddress(d.eth_address || '');
-    }).catch(() => {});
-  }, []);
-
-  // Render QR codes once addresses are loaded
-  useEffect(() => {
-    if (btcAddress && btcQrRef.current && window.QRCode) {
-      btcQrRef.current.innerHTML = '';
-      new window.QRCode(btcQrRef.current, { text: btcAddress, width: 120, height: 120, colorDark: '#000000', colorLight: '#ffffff' });
-    }
-  }, [btcAddress]);
-
-  useEffect(() => {
-    if (ethAddress && ethQrRef.current && window.QRCode) {
-      ethQrRef.current.innerHTML = '';
-      new window.QRCode(ethQrRef.current, { text: ethAddress, width: 120, height: 120, colorDark: '#000000', colorLight: '#ffffff' });
-    }
-  }, [ethAddress]);
-
   const filteredTz = useMemo(() => {
     if (!tzFilter) return timezones;
     return timezones.filter(tz => tz.toLowerCase().includes(tzFilter.toLowerCase()));
@@ -87,16 +58,16 @@ function ScreenSettings({ onBack, setPage }) {
 
   const eyebrowStyle = {
     fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: '0.12em',
     textTransform: 'uppercase',
-    color: 'var(--ink-3)',
+    color: 'var(--ink-2)',
     marginBottom: 6,
   };
 
   const descStyle = {
-    fontSize: 13,
-    color: 'var(--ink-3)',
+    fontSize: 14,
+    color: 'var(--ink-2)',
     marginBottom: 12,
   };
 
@@ -264,7 +235,7 @@ function ScreenSettings({ onBack, setPage }) {
               onBlur={() => localStorage.setItem('ss-cache-warning-days', String(cacheWarningDays))}
               style={{ ...inputStyle, width: 80 }}
             />
-            <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>days</span>
+            <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>days</span>
           </div>
         </div>
 
@@ -277,8 +248,8 @@ function ScreenSettings({ onBack, setPage }) {
           <div style={descStyle}>Enter your Hevy API key to fetch workout history directly from the app.</div>
           {/* API disclaimer */}
           <div className="row" style={{ gap: 8, marginBottom: 16 }}>
-            <IconWarn size={14} style={{ color: 'var(--ink-3)', flexShrink: 0, marginTop: 1 }}/>
-            <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+            <IconWarn size={14} style={{ color: 'var(--ink-2)', flexShrink: 0, marginTop: 1 }}/>
+            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
               Hevy's API is unofficial and may change without notice.
             </span>
           </div>
@@ -352,56 +323,6 @@ function ScreenSettings({ onBack, setPage }) {
             </div>
           )}
         </div>
-
-        {/* Phase 7 D-08: Donate card — BTC + ETH with QR codes */}
-        {(btcAddress || ethAddress) && (
-          <div className="card" style={{ padding: 24 }}>
-            <div className="row" style={{ gap: 8, alignItems: 'baseline', marginBottom: 6 }}>
-              <IconHeart size={14} style={{ color: 'var(--ink-3)' }}/>
-              <div style={{ ...eyebrowStyle, marginBottom: 0 }}>DONATE</div>
-            </div>
-            <div style={descStyle}>If StrengthSync saves you time, a small tip is appreciated.</div>
-
-            {/* BTC row */}
-            {btcAddress && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrowStyle, fontSize: 10, marginBottom: 8 }}>Bitcoin (BTC)</div>
-                <div className="row" style={{ gap: 16, alignItems: 'flex-start' }}>
-                  <div ref={btcQrRef} style={{ flexShrink: 0, background: '#fff', padding: 4, borderRadius: 8, lineHeight: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11, color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: 8 }}>{btcAddress}</div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => { navigator.clipboard.writeText(btcAddress).catch(() => {}); setBtcCopied(true); setTimeout(() => setBtcCopied(false), 2000); }}
-                    >{btcCopied ? 'Copied!' : 'Copy'}</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {btcAddress && ethAddress && <div style={{ height: 1, background: 'var(--line)', margin: '4px 0 20px' }} />}
-
-            {/* ETH row */}
-            {ethAddress && (
-              <div>
-                <div style={{ ...eyebrowStyle, fontSize: 10, marginBottom: 8 }}>Ethereum / ERC-20</div>
-                <div className="row" style={{ gap: 16, alignItems: 'flex-start' }}>
-                  <div ref={ethQrRef} style={{ flexShrink: 0, background: '#fff', padding: 4, borderRadius: 8, lineHeight: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11, color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: 8 }}>{ethAddress}</div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => { navigator.clipboard.writeText(ethAddress).catch(() => {}); setEthCopied(true); setTimeout(() => setEthCopied(false), 2000); }}
-                    >{ethCopied ? 'Copied!' : 'Copy'}</button>
-                    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 8 }}>
-                      This address also accepts USDC, USDT, DAI, and other ERC-20 tokens.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
       </div>
 
