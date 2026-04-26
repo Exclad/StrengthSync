@@ -9,6 +9,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
   const [tzOpen, setTzOpen] = useState(false);
   const [tzSource, setTzSource] = useState(null); // null | 'auto' | 'saved'
   const [weightUnit, setWeightUnit] = useState(() => localStorage.getItem('ss-weight-unit') || 'kg');
+  const [weightUnitSaved, setWeightUnitSaved] = useState(() => !!localStorage.getItem('ss-weight-unit'));
   const [uploadError, setUploadError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const tzWrapRef = useRef(null);
@@ -403,9 +404,12 @@ function ScreenUpload({ onNext, state, update, setPage }) {
         </div>
       </div>
 
+      {/* Timezone + weight unit — side by side */}
+      <div style={{ marginTop: 16, display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
       {/* Timezone selector — custom combobox */}
-      <div style={{ marginTop: 16, position: 'relative' }} ref={tzWrapRef}>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Timezone</div>
+      <div style={{ flex: '1 1 260px', position: 'relative' }} ref={tzWrapRef}>
+        <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Timezone</div>
 
         {/* Trigger */}
         <button
@@ -503,13 +507,13 @@ function ScreenUpload({ onNext, state, update, setPage }) {
       </div>
 
       {/* Weight unit toggle */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hevy weight unit</div>
+      <div style={{ flexShrink: 0 }}>
+        <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hevy weight unit</div>
         <div style={{ display: 'inline-flex', borderRadius: 8, border: '1px solid var(--line)', overflow: 'hidden' }}>
           {['kg', 'lbs'].map(u => (
             <button
               key={u}
-              onClick={() => { setWeightUnit(u); localStorage.setItem('ss-weight-unit', u); }}
+              onClick={() => { setWeightUnit(u); setWeightUnitSaved(true); localStorage.setItem('ss-weight-unit', u); }}
               style={{
                 padding: '7px 20px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)',
                 fontSize: 13, fontWeight: 600, transition: 'all .15s',
@@ -519,10 +523,15 @@ function ScreenUpload({ onNext, state, update, setPage }) {
             >{u}</button>
           ))}
         </div>
-        <div style={{ marginTop: 5, fontSize: 12, color: 'var(--ink-3)' }}>
-          Match what's shown in your Hevy app under Settings → Units.
+        <div style={{ marginTop: 5, fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {weightUnitSaved
+            ? <><IconCheck size={12} style={{ color: 'var(--good)', flexShrink: 0 }}/><span style={{ color: 'var(--good)', fontFamily: 'var(--font-mono)' }}>{weightUnit}</span><span>· Saved preference</span></>
+            : <span>Match your Hevy app Settings → Units.</span>
+          }
         </div>
       </div>
+
+      </div>{/* end timezone + weight unit row */}
 
       <div className="row" style={{ marginTop: 24, justifyContent: "flex-end", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
