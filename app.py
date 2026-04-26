@@ -231,7 +231,7 @@ def api_hevy_workouts():
     if api_key:
         try:
             raw_workouts = _fetch_hevy_api_workouts(api_key)
-            hevy_workouts = hevy_parser.parse_hevy_api_response(raw_workouts)
+            hevy_workouts = hevy_parser.parse_hevy_api_response(raw_workouts, weight_unit=session.get("weight_unit", "kg"))
             # Save to cache for future sessions
             try:
                 _write_hevy_api_cache(raw_workouts)
@@ -246,7 +246,7 @@ def api_hevy_workouts():
     if hevy_workouts is None:
         if CACHE_PATH.exists():
             try:
-                hevy_workouts = hevy_parser.parse_hevy_csv(str(CACHE_PATH))
+                hevy_workouts = hevy_parser.parse_hevy_csv(str(CACHE_PATH), weight_unit=session.get("weight_unit", "kg"))
                 session["hevy_csv_path"] = str(CACHE_PATH)
                 session["hevy_tz_mode"] = "csv"
                 return jsonify({
@@ -302,6 +302,9 @@ def api_upload():
 
     fit_file = request.files["fit_file"]
     timezone_str = request.form.get("timezone", "").strip()
+    weight_unit = request.form.get("weight_unit", "kg").strip().lower()
+    if weight_unit not in ("kg", "lbs"):
+        weight_unit = "kg"
 
     if not timezone_str:
         return jsonify({"error": "No timezone provided.", "detail": "timezone field missing"}), 400
@@ -334,7 +337,7 @@ def api_upload():
         if not hevy_csv_path_existing or not pathlib.Path(hevy_csv_path_existing).exists():
             return jsonify({"error": "No cached Hevy data found. Please upload a Hevy CSV.", "detail": "session hevy_csv_path missing or file gone"}), 400
         try:
-            hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path_existing)
+            hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path_existing, weight_unit=weight_unit)
             if not hevy_workouts:
                 raise ValueError("Cached CSV contains no workouts")
         except Exception as exc:
@@ -349,7 +352,7 @@ def api_upload():
 
         # Validate Hevy CSV
         try:
-            hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy_path)
+            hevy_workouts = hevy_parser.parse_hevy_csv(tmp_hevy_path, weight_unit=weight_unit)
             if not hevy_workouts:
                 raise ValueError("CSV parsed but contains no workouts")
             # Phase 7 (D-04): persist copy to data/hevy_cache.csv — best-effort, non-fatal
@@ -368,6 +371,7 @@ def api_upload():
     session["fit_path"] = tmp_fit_path
     session["hevy_csv_path"] = tmp_hevy_path
     session["timezone"] = timezone_str
+    session["weight_unit"] = weight_unit
 
     # Serialize FitWorkout manually (no dataclasses.asdict — datetime fields)
     def dt_iso(dt):
@@ -417,7 +421,7 @@ def api_match():
 
     try:
         fit_workout = fit_parser.parse_fit_file(fit_path)
-        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path)
+        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path, weight_unit=session.get("weight_unit", "kg"))
     except Exception as exc:
         return jsonify({"error": "Failed to re-parse uploaded files.", "detail": str(exc)}), 400
 
@@ -507,7 +511,7 @@ def api_preview():
 
     try:
         fit_workout = fit_parser.parse_fit_file(fit_path)
-        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path)
+        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path, weight_unit=session.get("weight_unit", "kg"))
     except Exception as exc:
         return jsonify({"error": "Failed to re-parse uploaded files.", "detail": str(exc)}), 400
 
@@ -577,7 +581,7 @@ def api_export():
 
     try:
         fit_workout = fit_parser.parse_fit_file(fit_path)
-        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path)
+        hevy_workouts = hevy_parser.parse_hevy_csv(hevy_csv_path, weight_unit=session.get("weight_unit", "kg"))
     except Exception as exc:
         return jsonify({"error": "Failed to re-parse uploaded files.", "detail": str(exc)}), 400
 

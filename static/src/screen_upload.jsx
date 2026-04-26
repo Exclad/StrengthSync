@@ -8,6 +8,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
   const [tzFilter, setTzFilter] = useState('');
   const [tzOpen, setTzOpen] = useState(false);
   const [tzSource, setTzSource] = useState(null); // null | 'auto' | 'saved'
+  const [weightUnit, setWeightUnit] = useState(() => localStorage.getItem('ss-weight-unit') || 'kg');
   const [uploadError, setUploadError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const tzWrapRef = useRef(null);
@@ -97,6 +98,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
       formData.append('use_session_hevy', 'true');
     }
     formData.append('timezone', timezone);
+    formData.append('weight_unit', weightUnit);
 
     try {
       const resp = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -498,6 +500,28 @@ function ScreenUpload({ onNext, state, update, setPage }) {
             )}
           </div>
         )}
+      </div>
+
+      {/* Weight unit toggle */}
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 6, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hevy weight unit</div>
+        <div style={{ display: 'inline-flex', borderRadius: 8, border: '1px solid var(--line)', overflow: 'hidden' }}>
+          {['kg', 'lbs'].map(u => (
+            <button
+              key={u}
+              onClick={() => { setWeightUnit(u); localStorage.setItem('ss-weight-unit', u); }}
+              style={{
+                padding: '7px 20px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)',
+                fontSize: 13, fontWeight: 600, transition: 'all .15s',
+                background: weightUnit === u ? 'var(--ink)' : 'var(--surface)',
+                color: weightUnit === u ? 'var(--surface)' : 'var(--ink-3)',
+              }}
+            >{u}</button>
+          ))}
+        </div>
+        <div style={{ marginTop: 5, fontSize: 12, color: 'var(--ink-3)' }}>
+          Match what's shown in your Hevy app under Settings → Units.
+        </div>
       </div>
 
       <div className="row" style={{ marginTop: 24, justifyContent: "flex-end", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>

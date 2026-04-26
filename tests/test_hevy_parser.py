@@ -64,6 +64,73 @@ def test_parse_hevy_bodyweight_not_cardio(sample_hevy_path):
 
 
 # ---------------------------------------------------------------------------
+# Weight unit conversion tests
+# ---------------------------------------------------------------------------
+
+def test_lbs_conversion_api_response():
+    """135 lbs → ~61.235 kg after parse_hevy_api_response with weight_unit='lbs'."""
+    from hevy_parser import parse_hevy_api_response, LBS_TO_KG
+    sample = [{"title": "W", "start_time": "2026-04-22T14:00:00+00:00",
+               "end_time": "2026-04-22T15:00:00+00:00", "description": "",
+               "exercises": [{"title": "Bench Press",
+                               "sets": [{"set_type": "normal", "weight_kg": 135.0, "reps": 5}]}]}]
+    result = parse_hevy_api_response(sample, weight_unit='lbs')
+    stored_kg = result[0].exercises[0].sets[0].weight_kg
+    assert abs(stored_kg - 135.0 * LBS_TO_KG) < 0.001, f"Expected ~{135*LBS_TO_KG:.3f} kg, got {stored_kg}"
+
+
+def test_kg_unchanged_api_response():
+    """weight_unit='kg' (default) must not modify values."""
+    from hevy_parser import parse_hevy_api_response
+    sample = [{"title": "W", "start_time": "2026-04-22T14:00:00+00:00",
+               "end_time": "2026-04-22T15:00:00+00:00", "description": "",
+               "exercises": [{"title": "Bench Press",
+                               "sets": [{"set_type": "normal", "weight_kg": 100.0, "reps": 5}]}]}]
+    result = parse_hevy_api_response(sample, weight_unit='kg')
+    assert result[0].exercises[0].sets[0].weight_kg == 100.0
+
+
+def test_lbs_conversion_csv(tmp_path):
+    """parse_hevy_csv with weight_unit='lbs' converts values correctly."""
+    from hevy_parser import parse_hevy_csv, LBS_TO_KG
+    csv_content = (
+        '"title","start_time","end_time","description","exercise_title","superset_id",'
+        '"exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"\n'
+        '"Legs","Apr 17, 2026, 5:46 PM","Apr 17, 2026, 6:39 PM","","Leg Press Horizontal (Machine)",'
+        ',,"0","normal","135","10",,,\n'
+    )
+    csv_file = tmp_path / "hevy.csv"
+    csv_file.write_text(csv_content)
+    result = parse_hevy_csv(str(csv_file), weight_unit='lbs')
+    stored_kg = result[0].exercises[0].sets[0].weight_kg
+    assert abs(stored_kg - 135.0 * LBS_TO_KG) < 0.001
+
+
+def test_bodyweight_none_not_converted():
+    """None weight (bodyweight exercise) must stay None regardless of unit."""
+    from hevy_parser import parse_hevy_api_response
+    sample = [{"title": "W", "start_time": "2026-04-22T14:00:00+00:00",
+               "end_time": "2026-04-22T15:00:00+00:00", "description": "",
+               "exercises": [{"title": "Pull-up",
+                               "sets": [{"set_type": "normal", "weight_kg": None, "reps": 10}]}]}]
+    result = parse_hevy_api_response(sample, weight_unit='lbs')
+    assert result[0].exercises[0].sets[0].weight_kg is None
+
+
+def test_roundtrip_lbs_garmin_display():
+    """135 lbs → kg → FIT uint16 encoding → decode → back to lbs stays within 0.5 lbs."""
+    from hevy_parser import LBS_TO_KG
+    input_lbs = 135.0
+    kg = input_lbs * LBS_TO_KG           # convert to kg for FIT storage
+    fit_raw = round(kg * 16)             # FIT field 4 encodes kg × 16 as uint16
+    decoded_kg = fit_raw / 16.0          # what Garmin reads back
+    decoded_lbs = decoded_kg / LBS_TO_KG # what a lbs-mode Garmin profile displays
+    assert abs(decoded_lbs - input_lbs) < 0.5, (
+        f"Round-trip error too large: {input_lbs} lbs → {decoded_lbs:.2f} lbs after FIT encoding"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Phase 7 stub — RED until Wave 1 hevy_parser.py is extended
 # ---------------------------------------------------------------------------
 

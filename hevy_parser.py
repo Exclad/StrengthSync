@@ -12,6 +12,15 @@ HEVY_TS_FMT = "%b %d, %Y, %I:%M %p"
 # Verified against all 95 workouts in original_hevy.csv.
 # Handles: "Apr 17, 2026, 5:46 PM" and "Mar 9, 2026, 10:58 AM" (single-digit day).
 
+LBS_TO_KG = 0.45359237
+
+
+def _convert_weight(value: float | None, weight_unit: str) -> float | None:
+    """Convert weight to kg if the source unit is lbs. None passes through unchanged."""
+    if value is None or weight_unit != 'lbs':
+        return value
+    return round(value * LBS_TO_KG, 4)
+
 
 def _opt_float(val: str) -> float | None:
     """Return float or None for an empty CSV cell."""
@@ -33,7 +42,7 @@ def _is_cardio(row: dict) -> bool:
     return not row["weight_kg"].strip() and not row["reps"].strip()
 
 
-def parse_hevy_csv(path: str) -> list[HevyWorkout]:
+def parse_hevy_csv(path: str, weight_unit: str = 'kg') -> list[HevyWorkout]:
     """Parse a Hevy CSV export into a list of HevyWorkout objects.
 
     Groups rows by (title, start_time, end_time) triple into workouts.
@@ -86,7 +95,7 @@ def parse_hevy_csv(path: str) -> list[HevyWorkout]:
             workout_exercises[key][ex_title].sets.append(HevySet(
                 set_index=_opt_int(row["set_index"]),
                 set_type=row.get("set_type", "normal"),
-                weight_kg=_opt_float(row["weight_kg"]),
+                weight_kg=_convert_weight(_opt_float(row["weight_kg"]), weight_unit),
                 reps=_opt_int(row["reps"]),
                 distance_km=_opt_float(row.get("distance_km", "")),
                 duration_seconds=_opt_float(row.get("duration_seconds", "")),
@@ -97,7 +106,7 @@ def parse_hevy_csv(path: str) -> list[HevyWorkout]:
     return list(workouts.values())
 
 
-def parse_hevy_api_response(workouts_data: list[dict]) -> list[HevyWorkout]:
+def parse_hevy_api_response(workouts_data: list[dict], weight_unit: str = 'kg') -> list[HevyWorkout]:
     """Convert Hevy API workout list to list[HevyWorkout].
 
     API timestamps are ISO 8601 with UTC offset (e.g. "2026-04-22T14:33:00+00:00").
@@ -130,7 +139,7 @@ def parse_hevy_api_response(workouts_data: list[dict]) -> list[HevyWorkout]:
             )
             sets: list[HevySet] = []
             for s in ex.get("sets", []):
-                weight = s.get("weight_kg")
+                weight = _convert_weight(s.get("weight_kg"), weight_unit)
                 reps = s.get("reps")
                 # Cardio detection: no weight AND no reps
                 if weight is None and reps is None:
