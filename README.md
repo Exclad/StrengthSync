@@ -92,6 +92,20 @@ git pull
 docker compose up -d --build
 ```
 
+**Set a persistent SECRET_KEY** (required to survive container restarts without losing sessions):
+
+1. Generate a key:
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(32))"
+   ```
+2. Paste it into `docker-compose.yml`:
+   ```yaml
+   environment:
+     - SECRET_KEY=your-generated-key-here
+   ```
+
+Without this, every container restart generates a new random key — any in-progress sync session will show "Session expired" and require re-uploading files. Your exercise mappings and merged FIT files are unaffected (those are in the volume mounts).
+
 **To change the port** (e.g. if 5000 is taken), edit `docker-compose.yml`:
 ```yaml
 ports:
@@ -252,7 +266,7 @@ StrengthSync/
 
 **"No Hevy workout found within 30 minutes"** — The workouts are more than 30 minutes apart. Use the manual match selector.
 
-**"Session expired"** — Flask sessions expire after inactivity. Re-upload your files to start a new session.
+**"Session expired"** — Re-upload your files to start a new session. In Docker, this also happens after every container restart unless you set a persistent `SECRET_KEY` in `docker-compose.yml` (see the Docker section above).
 
 **Mapping seems wrong** — Go to the Map step, click the exercise name, and search for the correct Garmin exercise. Changes save immediately.
 
