@@ -302,14 +302,18 @@ function ScreenUpload({ onNext, state, update, setPage }) {
               <div style={{ marginTop: 14, padding: 14, background: "var(--surface-2)", borderRadius: 10, border: "1px dashed var(--line-2)", textAlign: "center" }}>
                 <input ref={hevyInput} type="file" accept=".csv" style={{ display: "none" }}
                   onChange={e => { if (e.target.files[0]) update({ hevyFile: e.target.files[0] }); }} />
-                <IconUpload size={18}/>
                 {state.hevyFile ? (
-                  <div style={{ fontSize: 13, marginTop: 4, color: "var(--good)" }}>
-                    <IconCheck size={12}/> {state.hevyFile.name}
+                  <div className="row" style={{ padding: "4px 0", gap: 8, justifyContent: "center", alignItems: "center" }}>
+                    <IconCheck size={14} style={{ color: "var(--good)", flexShrink: 0 }}/>
+                    <span className="mono" style={{ fontSize: 13, color: "var(--good)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{state.hevyFile.name}</span>
+                    <button className="icon-btn" style={{ width: 24, height: 24, flexShrink: 0 }} title="Remove file" onClick={(e) => { e.stopPropagation(); update({ hevyFile: null }); hevyInput.current && (hevyInput.current.value = ''); }}>
+                      <IconX size={12}/>
+                    </button>
                   </div>
                 ) : (
                   <div style={{ fontSize: 13, marginTop: 4 }}>
-                    Drop hevy-export.csv
+                    <IconUpload size={18}/>
+                    <div>Drop hevy-export.csv</div>
                     <div style={{ marginTop: 8 }}>
                       <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); hevyInput.current?.click(); }}>Browse files</button>
                     </div>
@@ -337,10 +341,15 @@ function ScreenUpload({ onNext, state, update, setPage }) {
                 </button>
               </p>
             ) : hevyFromApi ? (
-              /* API fetch succeeded */
-              <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-                <span className="chip good" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>CACHED</span>
-                <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>Workouts fetched from Hevy API</span>
+              /* API fetch succeeded — show status + option to change source */
+              <div className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                  <span className="chip good" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: '0.1em' }}>API READY</span>
+                  <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>Workouts fetched from Hevy API</span>
+                </div>
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => { setHevyFromApi(false); setApiError(null); }}>
+                  Change source
+                </button>
               </div>
             ) : (
               /* API key stored — show fetch button */
@@ -355,7 +364,7 @@ function ScreenUpload({ onNext, state, update, setPage }) {
                       setApiFetching(true);
                       try {
                         const r = await fetch('/api/hevy/workouts', {
-                          headers: { 'X-Hevy-Key': hevyApiKey },
+                          headers: { 'X-Hevy-Key': hevyApiKey, 'X-Weight-Unit': weightUnit },
                         });
                         const body = await r.json();
                         if (!r.ok || body.error) {

@@ -44,49 +44,59 @@ function ScreenMap({ onNext, onBack, state, update }) {
   const [search, setSearch] = useState('');
   const [showLibrary, setShowLibrary] = useState(false);
   const [librarySearch, setLibrarySearch] = useState('');
+  const [confirming, setConfirming] = useState(false);
 
-  // On mount: fetch all garmin exercises + suggestions for each non-cardio exercise
+  // On mount: fetch garmin exercises, then fetch suggestions sequentially (not in parallel)
+  // to avoid overloading the server and to prevent out-of-order response races.
   useEffect(() => {
     fetch('/api/exercises').then(r => r.json()).then(setAllGarminExercises).catch(() => {});
 
-    setExercises(prev => {
-      prev.forEach(ex => {
-        if (ex.status === 'cardio') return;
-        fetch('/api/map/suggest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hevy_exercise_name: ex.hevy }),
-        })
-          .then(r => r.json())
-          .then(body => {
-            const suggestions = body.suggestions || [];
-            const top = suggestions[0];
-            const isConfirmed = body.confirmed === true;
-            const newStatus = isConfirmed ? 'mapped' : (top && top.score >= 70 ? 'mapped' : (top ? 'needs-review' : 'unmapped'));
-            const confidence = isConfirmed ? 1.0 : (top ? top.score / 100 : 0);
-            setExercises(prev2 => prev2.map(e =>
-              e.id === ex.id
-                ? { ...e, suggestions, status: newStatus, confidence, garmin: top?.id || null, garminLabel: top?.label || null, dbConfirmed: isConfirmed }
-                : e
-            ));
-          })
-          .catch(() => {});
-      });
-      return prev;
-    });
+    const initialExercises = exercises;
+    const fetchSequential = async () => {
+      for (const ex of initialExercises) {
+        if (ex.status === 'cardio') continue;
+        try {
+          const r = await fetch('/api/map/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hevy_exercise_name: ex.hevy }),
+          });
+          if (!r.ok) continue;
+          const body = await r.json();
+          const suggestions = body.suggestions || [];
+          const top = suggestions[0];
+          const isConfirmed = body.confirmed === true;
+          const newStatus = isConfirmed ? 'mapped' : (top && top.score >= 70 ? 'mapped' : (top ? 'needs-review' : 'unmapped'));
+          const confidence = isConfirmed ? 1.0 : (top ? top.score / 100 : 0);
+          setExercises(prev => prev.map(e =>
+            e.id === ex.id
+              ? { ...e, suggestions, status: newStatus, confidence, garmin: top?.id || null, garminLabel: top?.label || null, dbConfirmed: isConfirmed }
+              : e
+          ));
+        } catch {
+          setMapError('Could not load suggestions — check the app is still running.');
+          break;
+        }
+      }
+    };
+    fetchSequential();
   }, []);
 
-  const handleConfirm = (exId, suggestion) => {
+  const handleConfirm = async (exId, suggestion) => {
     setMapError(null);
+    setConfirming(true);
     const ex = exercises.find(e => e.id === exId);
-    if (!ex) return;
-    fetch('/api/map/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hevy_name: ex.hevy, garmin_name: suggestion.id }),
-    })
-      .then(async r => {
-        if (!r.ok) { const b = await r.json(); setMapError(b.error || "Couldn't save that mapping. Check the app is still running and try again."); return; }
+    if (!ex) { setConfirming(false); return; }
+    try {
+      const r = await fetch('/api/map/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hevy_name: ex.hevy, garmin_name: suggestion.id }),
+      });
+      if (!r.ok) {
+        const b = await r.json();
+        setMapError(b.error || "Couldn't save that mapping. Check the app is still running and try again.");
+      } else {
         setExercises(prev => prev.map(e =>
           e.id === exId
             ? { ...e, status: 'mapped', confidence: 1.0, garmin: suggestion.id, garminLabel: suggestion.label, dbConfirmed: true }
@@ -94,11 +104,13 @@ function ScreenMap({ onNext, onBack, state, update }) {
         ));
         setShowSearch(false);
         setSearchQuery('');
-        // Auto-advance to next UNRESOLVED exercise
         const unresolvedIds = exercises.filter(e => (e.status === 'needs-review' || e.status === 'unmapped') && e.id !== exId).map(e => e.id);
         if (unresolvedIds.length > 0) setSelectedId(unresolvedIds[0]);
-      })
-      .catch(() => setMapError("Network error — couldn't reach the app. Refresh and try again if the problem persists."));
+      }
+    } catch {
+      setMapError("Network error — couldn't reach the app. Refresh and try again if the problem persists.");
+    }
+    setConfirming(false);
   };
 
   const handleSkip = (exId) => {
@@ -241,6 +253,7 @@ function ScreenMap({ onNext, onBack, state, update }) {
               setShowSearch={setShowSearch}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
+              confirming={confirming}
             />
           )}
 
@@ -373,7 +386,7 @@ function ExerciseListItem({ e, num, selected, onClick }) {
   );
 }
 
-function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises, showSearch, setShowSearch, searchQuery, setSearchQuery }) {
+function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises, showSearch, setShowSearch, searchQuery, setSearchQuery, confirming }) {
   const isResolved = exercise.status === 'mapped' || exercise.status === 'skipped' || exercise.status === 'cardio';
 
   return (
@@ -500,9 +513,9 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
               <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
                 {allGarminExercises
                   .filter(e => matchesSearch(e.exercise_name, searchQuery))
-                  .slice(0, 15)
+                  .slice(0, 25)
                   .map(e => (
-                    <button key={e.exercise_name} className="btn btn-ghost btn-sm" style={{ marginTop: 4, display: 'block', width: '100%', textAlign: 'left' }}
+                    <button key={e.exercise_name} className="btn btn-ghost btn-sm" disabled={confirming} style={{ marginTop: 4, display: 'block', width: '100%', textAlign: 'left', opacity: confirming ? 0.5 : 1 }}
                       onClick={() => onAccept(exercise.id, { id: e.exercise_name, label: toDisplayName(e.exercise_name) })}>
                       {toDisplayName(e.exercise_name)}
                     </button>
@@ -522,6 +535,7 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
             {exercise.suggestions?.map((s, i) => (
               <button
                 key={s.id}
+                disabled={confirming}
                 onClick={() => onAccept(exercise.id, s)}
                 style={{
                   display: "flex", alignItems: "center", gap: 14,
@@ -529,7 +543,8 @@ function MappingDetail({ exercise, onAccept, onClear, onSkip, allGarminExercises
                   background: i === 0 ? "var(--surface-2)" : "transparent",
                   border: `1px solid ${i === 0 ? "var(--line-2)" : "var(--line)"}`,
                   borderRadius: 10,
-                  cursor: "pointer",
+                  cursor: confirming ? "not-allowed" : "pointer",
+                  opacity: confirming ? 0.5 : 1,
                   font: "inherit", color: "inherit",
                   textAlign: "left",
                 }}

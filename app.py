@@ -95,13 +95,28 @@ def _fetch_hevy_api_workouts(api_key: str) -> list[dict]:
     return all_workouts
 
 
+def _iso_to_hevy_fmt(iso_str: str) -> str:
+    """Convert an ISO 8601 UTC timestamp to Hevy CSV format ("Apr 25, 2026, 01:45 PM").
+
+    parse_hevy_csv() expects HEVY_TS_FMT = "%b %d, %Y, %I:%M %p". Writing raw API
+    ISO strings to the cache CSV would cause a ValueError on re-parse. This function
+    normalises them so the cache file is always readable by parse_hevy_csv().
+    """
+    if not iso_str:
+        return ""
+    try:
+        dt = datetime.datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        dt_utc = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        return dt_utc.strftime("%b %d, %Y, %I:%M %p")
+    except (ValueError, AttributeError):
+        return iso_str  # leave as-is; parse_hevy_csv will raise a clear ValueError
+
+
 def _write_hevy_api_cache(raw_workouts: list[dict]) -> None:
     """Persist API workouts to data/hevy_cache.csv in Hevy CSV export format.
 
-    Writes a minimal CSV matching Hevy's export schema so parse_hevy_csv()
-    can read it on future sessions (hevy_tz_mode=csv path).
-    Only the fields parse_hevy_csv() uses are written: title, start_time,
-    end_time, exercise_title, set_index, set_type, weight_kg, reps.
+    Timestamps are converted from ISO 8601 UTC to Hevy's "%b %d, %Y, %I:%M %p"
+    format so parse_hevy_csv() can re-read the file in future sessions.
     """
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
@@ -122,8 +137,8 @@ def _write_hevy_api_cache(raw_workouts: list[dict]) -> None:
                 for s in ex.get("sets", []):
                     writer.writerow({
                         "title": w.get("title", ""),
-                        "start_time": w.get("start_time", ""),
-                        "end_time": w.get("end_time", ""),
+                        "start_time": _iso_to_hevy_fmt(w.get("start_time", "")),
+                        "end_time": _iso_to_hevy_fmt(w.get("end_time", "")),
                         "description": w.get("description", ""),
                         "exercise_title": ex_title,
                         "superset_id": s.get("superset_id", ""),
@@ -238,11 +253,14 @@ def api_hevy_workouts():
         api_key = request.args.get("key", "").strip()
 
     hevy_workouts = None
+    # weight_unit may not be in session yet if user fetches before /api/upload —
+    # fall back to the X-Weight-Unit header the upload screen sends alongside the key
+    weight_unit = session.get("weight_unit") or request.headers.get("X-Weight-Unit", "kg")
 
     if api_key:
         try:
             raw_workouts = _fetch_hevy_api_workouts(api_key)
-            hevy_workouts = hevy_parser.parse_hevy_api_response(raw_workouts, weight_unit=session.get("weight_unit", "kg"))
+            hevy_workouts = hevy_parser.parse_hevy_api_response(raw_workouts, weight_unit=weight_unit)
             # Save to cache for future sessions
             try:
                 _write_hevy_api_cache(raw_workouts)
@@ -257,7 +275,7 @@ def api_hevy_workouts():
     if hevy_workouts is None:
         if CACHE_PATH.exists():
             try:
-                hevy_workouts = hevy_parser.parse_hevy_csv(str(CACHE_PATH), weight_unit=session.get("weight_unit", "kg"))
+                hevy_workouts = hevy_parser.parse_hevy_csv(str(CACHE_PATH), weight_unit=weight_unit)
                 session["hevy_csv_path"] = str(CACHE_PATH)
                 session["hevy_tz_mode"] = "csv"
                 return jsonify({
@@ -505,7 +523,9 @@ def api_match():
             return jsonify({"error": f"Invalid hevy_workout_id: {hevy_workout_id}", "detail": "out of range"}), 400
         match = matcher.force_match(fit_workout, hevy_workouts[idx])
     else:
-        match = matcher.match_workouts(fit_workout, hevy_workouts, timezone_str)
+        # API workouts are already naive UTC — pass "UTC" so matcher doesn't double-shift
+        tz_for_match = "UTC" if session.get("hevy_tz_mode") == "utc" else timezone_str
+        match = matcher.match_workouts(fit_workout, hevy_workouts, tz_for_match)
         if match is None:
             start_str = fit_workout.start_time.isoformat() if fit_workout.start_time else "unknown"
             return jsonify({

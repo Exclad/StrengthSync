@@ -171,7 +171,9 @@ function ScreenPreview({ onNext, onBack, state }) {
                   {before.length} Garmin set records <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>→</span> {after.length} Hevy sets
                 </div>
               </div>
-              <span className="chip good mono" style={{ fontSize: 10 }}><IconCheck size={10}/> BIOMETRICS INTACT</span>
+              {(preview.biometricSummary.total_calories != null || preview.biometricSummary.avg_heart_rate != null) && (
+                <span className="chip good mono" style={{ fontSize: 10 }}><IconCheck size={10}/> BIOMETRICS INTACT</span>
+              )}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
               {/* Before */}

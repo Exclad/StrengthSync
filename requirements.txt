@@ -1,16 +1,13 @@
 bitstruct==8.22.1
 flask==3.1.3
-et_xmlfile==2.0.0
 fit-tool==0.9.15
 fitparse==1.2.0
 garmin-fit-sdk==21.200.0
 iniconfig==2.3.0
-openpyxl==3.1.5
 packaging==26.1
 pluggy==1.6.0
 Pygments==2.20.0
 pytest==9.0.3
 rapidfuzz==3.14.5
 python-dateutil==2.9.0.post0
-pandas==3.0.2
 qrcode[pil]
