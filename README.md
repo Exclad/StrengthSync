@@ -65,7 +65,9 @@ Garmin does not award intensity minutes to manually uploaded FIT files, even whe
    ./start.sh
    ```
 
-The app opens automatically at **http://localhost:5000**
+The app opens automatically in your browser. The URL is normally **http://localhost:5000** — if port 5000 is busy (common on macOS where AirPlay Receiver uses it), the app picks the next free port and prints the actual URL in the terminal.
+
+> **macOS tip:** If you see a different port, you can free up 5000 permanently by going to **System Settings → General → AirDrop & Handoff** and turning off **AirPlay Receiver**.
 
 ### Docker (NAS / always-on server)
 
@@ -121,6 +123,85 @@ ports:
 | `docker compose down -v` | ⚠️ **Deletes all volumes** — exercise mappings, history, and cached files are wiped |
 
 > Note: the browser does not auto-open in Docker mode. Navigate to the app URL manually.
+
+### Portainer (NAS / home server — no command line needed)
+
+Portainer gives you a browser UI to manage Docker containers. These steps assume Portainer CE is already installed and running on your server or NAS. If it isn't, install it first from [portainer.io](https://www.portainer.io/install).
+
+#### Step 1 — Get the files onto your server
+
+You need the StrengthSync files on your server before Portainer can build them. The easiest way depends on your setup:
+
+- **Synology / QNAP NAS:** use File Station or the built-in SSH terminal to run:
+  ```bash
+  git clone https://github.com/Exclad/StrengthSync.git /volume1/docker/StrengthSync
+  ```
+- **Any server with SSH access:**
+  ```bash
+  git clone https://github.com/Exclad/StrengthSync.git ~/StrengthSync
+  ```
+- **No terminal at all:** download the ZIP from GitHub (Code → Download ZIP), then extract it onto your server using your NAS file manager.
+
+#### Step 2 — Build the image in Portainer
+
+1. Open Portainer in your browser and select your **environment** (e.g. local or your NAS).
+2. In the left sidebar, click **Images**.
+3. Click **Build a new image**.
+4. Give the image a name, e.g. `strengthsync:latest`.
+5. Under **Upload**, switch to the **Path** tab and enter the full path to the folder you cloned in Step 1, for example `/volume1/docker/StrengthSync`.
+6. Click **Build the image**. Wait for it to complete — you'll see the build log scroll by. A green tick means success.
+
+#### Step 3 — Create the container
+
+1. In the left sidebar, click **Containers → + Add container**.
+2. Fill in the form:
+
+   | Field | Value |
+   |-------|-------|
+   | **Name** | `strengthsync` |
+   | **Image** | `strengthsync:latest` |
+
+3. Scroll to **Network ports** → click **+ publish a new network port**:
+
+   | Host port | Container port | Protocol |
+   |-----------|----------------|----------|
+   | `5000` | `5000` | TCP |
+
+4. Scroll to **Volumes** → click **+ map an additional volume** twice:
+
+   | Host path | Container path | Type |
+   |-----------|----------------|------|
+   | `/volume1/docker/StrengthSync/data` | `/app/data` | Bind |
+   | `/volume1/docker/StrengthSync/output` | `/app/output` | Bind |
+
+   > Adjust the host paths to match where you cloned the repo. Create the `data/` and `output/` folders first if they don't exist.
+
+5. Scroll to **Env** → click **+ add an environment variable**:
+
+   | Name | Value |
+   |------|-------|
+   | `SECRET_KEY` | *(paste a random string — see tip below)* |
+
+   > To generate a key: on any machine with Python, run `python -c "import secrets; print(secrets.token_hex(32))"` and copy the output. Without this, sessions will reset on every container restart.
+
+6. Scroll down and set **Restart policy** to **Unless stopped**.
+
+7. Click **Deploy the container**.
+
+#### Step 4 — Open the app
+
+Navigate to **http://your-server-ip:5000** in your browser. StrengthSync should be running.
+
+#### Updating to a new version
+
+1. SSH into your server and run:
+   ```bash
+   cd /volume1/docker/StrengthSync
+   git pull
+   ```
+2. In Portainer → **Images** → rebuild `strengthsync:latest` using the same path (Step 2 above).
+3. In Portainer → **Containers** → stop and remove the old `strengthsync` container.
+4. Re-create it following Step 3 above. Your `data/` and `output/` folders are untouched.
 
 ---
 
@@ -271,6 +352,8 @@ StrengthSync/
 ## Troubleshooting
 
 **"FIT file failed to parse"** — Re-export from Garmin Connect using **Export Original** (not GPX or CSV).
+
+**"This FIT file doesn't contain a workout session"** — You've uploaded a health monitoring file instead of a workout activity file. This happens if you downloaded from Garmin's **"Export Your Data"** archive (the zip with filenames like `youremail_61583XXXXX.fit`) — those are daily health logs, not workouts. To get the right file: open [Garmin Connect](https://connect.garmin.com) → **Activities** → click your strength training session → **⋯ menu → Export Original**. Each workout produces one `.fit` file.
 
 **"No Hevy workout found within 30 minutes"** — The workouts are more than 30 minutes apart. Use the manual match selector.
 

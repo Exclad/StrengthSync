@@ -11,8 +11,5 @@ if not exist .venv\Scripts\python.exe (
     exit /b 1
 )
 
-:: Open browser after a short delay (runs in background)
-start "" cmd /c "timeout /t 2 >nul && start http://localhost:5000"
-
-:: Start the app
+:: Start the app — it will open your browser automatically on the correct port
 .venv\Scripts\python app.py

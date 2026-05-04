@@ -9,8 +9,5 @@ if [ ! -f ".venv/bin/python" ]; then
     exit 1
 fi
 
-# Open browser after a short delay (background)
-(sleep 2 && open "http://localhost:5000" 2>/dev/null || xdg-open "http://localhost:5000" 2>/dev/null) &
-
-# Start the app
+# Start the app — it will open your browser automatically on the correct port
 .venv/bin/python app.py

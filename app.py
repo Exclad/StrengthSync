@@ -1,6 +1,7 @@
 import io
 import os
 import sys
+import socket
 import threading
 import tempfile
 import secrets
@@ -371,6 +372,18 @@ def api_upload():
         else:
             msg = "FIT file failed to parse. Try re-exporting from Garmin Connect."
         return jsonify({"error": msg, "detail": str(exc)}), 400
+
+    if fit_workout.start_time is None:
+        return jsonify({
+            "error": (
+                "This FIT file doesn't contain a workout session — it looks like a "
+                "health monitoring file from Garmin's data archive. "
+                "To get the right file: open Garmin Connect, go to Activities, "
+                "click your strength workout, then use the ⋯ menu → Export Original. "
+                "Each workout needs its own FIT file."
+            ),
+            "detail": "No session message found in FIT file (likely a MONITOR-type file from the Garmin data archive)",
+        }), 400
 
     if use_session_hevy:
         # Cache / API path: use Hevy data already set in session by /api/hevy/use-cache or /api/hevy/workouts
@@ -744,13 +757,34 @@ def api_history_download():
 # Startup
 # ---------------------------------------------------------------------------
 
-def _open_browser():
-    webbrowser.open("http://localhost:5000")
+def _find_free_port(preferred: int) -> int:
+    """Return preferred port if available, otherwise scan upward up to +20."""
+    for port in range(preferred, preferred + 20):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                continue
+    # Last resort: let the OS pick any free port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 if __name__ == "__main__":
     host = os.environ.get("HOST", "127.0.0.1")
-    port = int(os.environ.get("PORT", 5000))
+    preferred_port = int(os.environ.get("PORT", 5000))
+    port = _find_free_port(preferred_port) if host == "127.0.0.1" else preferred_port
+    if port != preferred_port:
+        print(
+            f"Port {preferred_port} is already in use (on macOS this is often AirPlay Receiver — "
+            f"you can disable it in System Settings → General → AirDrop & Handoff). "
+            f"Starting on port {port} instead.",
+            file=sys.stderr,
+        )
+    url = f"http://localhost:{port}"
+    print(f"StrengthSync running at {url}", file=sys.stderr)
     if host == "127.0.0.1":
-        threading.Timer(1.0, _open_browser).start()
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     app.run(debug=False, host=host, port=port)
