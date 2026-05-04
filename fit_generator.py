@@ -5,6 +5,7 @@ Phase 1: minimal stubs proven against Garmin Connect.
 Phase 4: full merge pipeline extends these functions.
 """
 import datetime
+import logging
 import pathlib
 import shutil
 import struct
@@ -778,12 +779,20 @@ def _validate_fit_output(path: str) -> None:
     Raises:
         ValueError: If either parse gate fails. Message begins with 'fit-tool' or 'fitparse'.
     """
+    # fit-tool logs WARNING for every proprietary/extended field it doesn't recognise
+    # (e.g. device_info fields added by newer Garmin firmware). These are harmless —
+    # suppress to ERROR so they don't pollute the container log.
+    _fit_tool_logger = logging.getLogger("fit_tool")
+    _prev_level = _fit_tool_logger.level
+    _fit_tool_logger.setLevel(logging.ERROR)
     try:
         FitFile.from_file(path)
     except Exception as exc:
         raise ValueError(
             f"fit-tool validation failed for merged FIT: {exc}\nPath: {path}"
         ) from exc
+    finally:
+        _fit_tool_logger.setLevel(_prev_level)
     try:
         with FitParseFile(path) as ff:
             list(ff.get_messages())

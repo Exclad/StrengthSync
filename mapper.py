@@ -3,7 +3,7 @@
 Fuzzy-matches Hevy exercise names against Garmin exercise enums (MAP-02).
 Confirmed mappings are persisted via database.py (MAP-01).
 Only user-confirmed mappings enter the DB (D-08) — suggest_mapping() never writes.
-Loads data/garmin_exercises.csv once at module import.
+Loads garmin_exercises.csv (project root) once at module import.
 """
 from __future__ import annotations
 import csv
@@ -16,7 +16,7 @@ import database
 # Score threshold: >= UNRESOLVED_THRESHOLD = auto-accept candidate; below = UNRESOLVED (D-05, MAP-03)
 UNRESOLVED_THRESHOLD: int = 70
 
-_CSV_PATH: pathlib.Path = pathlib.Path(__file__).parent / "data" / "garmin_exercises.csv"
+_CSV_PATH: pathlib.Path = pathlib.Path(__file__).parent / "garmin_exercises.csv"
 
 
 def _load_exercises() -> list[GarminExercise]:

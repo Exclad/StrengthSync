@@ -313,8 +313,8 @@ StrengthSync/
 ├── database.py             # SQLite schema and queries
 ├── models.py               # Shared data models
 ├── requirements.txt        # Python dependencies
+├── garmin_exercises.csv    # Garmin exercise enum database (~600 exercises) — baked into Docker image
 ├── data/
-│   ├── garmin_exercises.csv   # Garmin exercise enum database (~600 exercises)
 │   └── hevy_cache.csv         # Cached Hevy export (auto-created after first sync)
 ├── static/src/                # React JSX components
 └── templates/index.html       # Single-page app shell
