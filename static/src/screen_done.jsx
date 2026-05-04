@@ -4,25 +4,42 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
   const [exportError, setExportError] = useState(null);
   const [fitBlob, setFitBlob] = useState(null);
   const [logLines, setLogLines] = useState([]);
+  const controller = useRef(null);
 
   useEffect(() => {
-    const LOG = [
-      "Parsing Garmin biometric stream",
-      "Applying exercise mappings",
-      "Replacing set/rep records",
-      "Validating against FIT schema",
-    ];
+    // Build log lines based on state
+    const LOG = ["Validating FIT file structure"];
+
+    const exercises = state?.exercises;
+    const hasMappedExercises = exercises && exercises.length > 0;
+    const hasConfirmedMappings = exercises?.some(ex => ex.dbConfirmed);
+
+    if (hasMappedExercises) {
+      LOG.unshift("Parsing Garmin biometric stream");
+      if (hasConfirmedMappings) {
+        LOG.splice(1, 0, "Applying confirmed exercise mappings from library");
+      }
+      LOG.splice(hasMappedExercises ? 2 : 1, 0, "Replacing set/rep records with Hevy exercise data");
+    } else {
+      LOG.unshift("Parsing Garmin biometric stream");
+    }
+
     // Show log lines one by one as visual feedback while fetch is in flight
     // Use staggered timeouts purely for UX (no artificial delay on the fetch itself)
     LOG.forEach((line, i) => setTimeout(() => setLogLines(prev => [...prev, line]), i * 400));
 
     const hevy_idx = state && state.matchResult ? state.matchResult.hevy_workout_index || 0 : 0;
+    controller.current = new AbortController();
+    const timeoutId = setTimeout(() => controller.current?.abort(), 60000);
+
     fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hevy_workout_index: hevy_idx }),
+      signal: controller.current.signal,
     })
       .then(async r => {
+        clearTimeout(timeoutId);
         if (!r.ok) {
           const body = await r.json().catch(() => ({ error: 'Export failed.' }));
           setExportError(body.error || 'Export failed.');
@@ -34,6 +51,12 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
         setPhase('ready');
       })
       .catch(err => {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          setPhase('error');
+          setExportError('Export cancelled or timed out. Go back to Preview and try again.');
+          return;
+        }
         setExportError('Network error during export.');
         setPhase('error');
       });
@@ -41,10 +64,18 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
 
   const isBatch = fitCount > 1;
   const remaining = fitCount - (fitIndex + 1);
+  const objectUrlRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
 
   const handleDownload = () => {
     if (!fitBlob) return;
     const url = URL.createObjectURL(fitBlob);
+    objectUrlRef.current = url;
     const a = document.createElement('a');
     const today = new Date().toISOString().slice(0, 10);
     const suffix = isBatch ? `-${fitIndex + 1}of${fitCount}` : '';
@@ -79,6 +110,11 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-2)' }}>{line}</span>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: 32 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { controller.current?.abort(); }}>
+              Cancel
+            </button>
           </div>
         </div>
       )}

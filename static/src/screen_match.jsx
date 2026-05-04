@@ -16,18 +16,11 @@ function ScreenMatch({ onNext, onBack, state, update }) {
       .then(async r => {
         const body = await r.json();
         if (!r.ok) {
-          const matchErr = body.error || '';
-          if (matchErr.toLowerCase().includes('no') && matchErr.toLowerCase().includes('match')) {
-            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
-          } else if (matchErr.toLowerCase().includes('multiple') || matchErr.toLowerCase().includes('ambiguous')) {
-            const numMatch = matchErr.match(/\d+/);
-            const n = numMatch ? numMatch[0] : 'multiple';
-            setMatchError(`Found ${n} possible matches. Pick the correct Hevy workout below.`);
-          } else if (matchErr) {
-            setMatchError(matchErr);
-          } else {
-            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
-          }
+          const isNoMatch = body.detail === 'match_workouts returned None';
+          const msg = isNoMatch
+            ? `No Hevy workout found within 30 minutes. Check your timezone or use manual match below.`
+            : (body.error || 'Match failed — try again.');
+          setMatchError(msg);
           setLoading(false);
           return;
         }
@@ -49,18 +42,11 @@ function ScreenMatch({ onNext, onBack, state, update }) {
       .then(async r => {
         const body = await r.json();
         if (!r.ok) {
-          const matchErr = body.error || '';
-          if (matchErr.toLowerCase().includes('no') && matchErr.toLowerCase().includes('match')) {
-            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
-          } else if (matchErr.toLowerCase().includes('multiple') || matchErr.toLowerCase().includes('ambiguous')) {
-            const numMatch = matchErr.match(/\d+/);
-            const n = numMatch ? numMatch[0] : 'multiple';
-            setMatchError(`Found ${n} possible matches. Pick the correct Hevy workout below.`);
-          } else if (matchErr) {
-            setMatchError(matchErr);
-          } else {
-            setMatchError('No Hevy workout found within 30 minutes of this Garmin session. Check your timezone is set correctly, or use manual match.');
-          }
+          const isNoMatch = body.detail === 'match_workouts returned None';
+          const msg = isNoMatch
+            ? `No Hevy workout found within 30 minutes. Check your timezone or use manual match below.`
+            : (body.error || 'Match failed — try again.');
+          setMatchError(msg);
           setLoading(false);
           return;
         }
@@ -74,6 +60,7 @@ function ScreenMatch({ onNext, onBack, state, update }) {
   const garmin = matchResult?.garmin;
   const hevy = matchResult?.hevy;
   const delta = matchResult?.delta_minutes;
+  const tolerance = matchResult?.tolerance_minutes || 30;
   const matched = !!matchResult && !matchError;
 
   return (
@@ -85,7 +72,7 @@ function ScreenMatch({ onNext, onBack, state, update }) {
             {loading ? <>Matching workouts&hellip;</> : matched ? <>We found <em>a match.</em></> : <><em>No match found.</em></>}
           </h1>
         </div>
-        <span className="chip neutral"><IconClock size={11}/> TOLERANCE · 30 MIN</span>
+        <span className="chip neutral"><IconClock size={11}/> TOLERANCE · {tolerance} MIN</span>
       </div>
 
       {/* Error banner */}

@@ -63,6 +63,7 @@ _COMMON_TIMEZONES = [
 # ---------------------------------------------------------------------------
 
 CACHE_PATH = pathlib.Path(__file__).parent / "data" / "hevy_cache.csv"
+CACHE_TZ_MODE_PATH = pathlib.Path(__file__).parent / "data" / "hevy_cache_tz_mode.txt"
 
 BTC_ADDRESS = "bc1qhjqappn6ere3239dqnzksuectktp62pdhu77qt"
 ETH_ADDRESS = "0x2716b0D80465a98Ada440b0c440f43c23E1Bd717"
@@ -151,6 +152,8 @@ def _write_hevy_api_cache(raw_workouts: list[dict]) -> None:
                         "duration_seconds": s.get("duration_seconds", ""),
                         "rpe": s.get("rpe", ""),
                     })
+    # Write sidecar to track that this cache came from API (UTC timestamps)
+    CACHE_TZ_MODE_PATH.write_text("utc", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +215,11 @@ def api_hevy_use_cache():
     if not CACHE_PATH.exists():
         return jsonify({"error": "No cached export found. Please upload a Hevy CSV.", "detail": "cache missing"}), 400
     session["hevy_csv_path"] = str(CACHE_PATH)
-    session["hevy_tz_mode"] = "csv"  # matcher.py applies normal tz localization for CSV data
+    # Read tz_mode from sidecar written when cache was last saved
+    tz_mode = "csv"
+    if CACHE_TZ_MODE_PATH.exists():
+        tz_mode = CACHE_TZ_MODE_PATH.read_text(encoding="utf-8").strip()
+    session["hevy_tz_mode"] = tz_mode
     return jsonify({"ok": True})
 
 
@@ -430,6 +437,8 @@ def api_upload():
             # Persist to data/hevy_cache.csv (volume-backed) — session always uses this path
             CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(tmp_hevy.name, str(CACHE_PATH))
+            # Write sidecar to track that this cache came from CSV upload
+            CACHE_TZ_MODE_PATH.write_text("csv", encoding="utf-8")
         except Exception as exc:
             return jsonify({
                 "error": "This doesn't look like a Hevy export. Go to Hevy Settings → Export and try again.",
@@ -542,6 +551,7 @@ def api_match():
         "delta_minutes": match.delta_minutes,
         "is_forced": match.is_forced,
         "hevy_workout_index": hevy_idx,
+        "tolerance_minutes": matcher.MATCH_TOLERANCE_MINUTES,
         "garmin": {
             "start_time": dt_iso(fit_workout.start_time),
             "end_time": dt_iso(fit_workout.end_time),

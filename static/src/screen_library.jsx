@@ -9,6 +9,7 @@ function ScreenLibrary({ onBack }) {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -52,10 +53,21 @@ function ScreenLibrary({ onBack }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hevy_name: hevyName }),
-    }).then(() => {
+    }).then(async r => {
+      if (!r.ok) {
+        const b = await r.json().catch(() => ({ error: 'Failed to delete mapping.' }));
+        setDeleteError(b.error || 'Failed to delete mapping. Try again.');
+        setConfirmDelete(null);
+        setTimeout(() => setDeleteError(null), 3000);
+        return;
+      }
       setMappings(prev => prev.filter(m => m.hevy_name !== hevyName));
       setConfirmDelete(null);
-    }).catch(() => {});
+    }).catch(() => {
+      setDeleteError('Network error — could not delete mapping.');
+      setConfirmDelete(null);
+      setTimeout(() => setDeleteError(null), 3000);
+    });
   };
 
   const filtered = mappings.filter(m =>
@@ -81,6 +93,12 @@ function ScreenLibrary({ onBack }) {
         </div>
         <span className="chip neutral mono" style={{ fontSize: 10 }}>PERSISTED TO DATABASE</span>
       </div>
+
+      {deleteError && (
+        <div className="chip bad" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, marginBottom: 16 }}>
+          <IconWarn size={14} /><span style={{ fontSize: 13 }}>{deleteError}</span>
+        </div>
+      )}
 
       {loading && (
         <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 14 }}>Loading mappings…</div>
@@ -186,7 +204,7 @@ function ScreenLibrary({ onBack }) {
                     </div>
                     {editSearch && (
                       <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)' }}>
-                        {garminFiltered.slice(0, 20).map(ex => (
+                        {garminFiltered.slice(0, 40).map(ex => (
                           <button
                             key={ex.exercise_name}
                             onClick={() => handleConfirm(m.hevy_name, ex.exercise_name)}
@@ -197,6 +215,11 @@ function ScreenLibrary({ onBack }) {
                             <span className="chip neutral" style={{ fontSize: 9 }}>{ex.exercise_category.replace(/_/g, ' ')}</span>
                           </button>
                         ))}
+                        {garminFiltered.length > 40 && (
+                          <div style={{ fontSize: 11, color: 'var(--ink-3)', textAlign: 'center', padding: '6px 0' }}>
+                            {garminFiltered.length - 40} more — type more to narrow results
+                          </div>
+                        )}
                         {garminFiltered.length === 0 && (
                           <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--ink-3)' }}>No matches for "{editSearch}"</div>
                         )}

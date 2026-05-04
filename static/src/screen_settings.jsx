@@ -13,6 +13,7 @@ function ScreenSettings({ onBack, setPage }) {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState(null);
   const [mappingCount, setMappingCount] = useState(0);
+  const [savedMsg, setSavedMsg] = useState('');
   const tzWrapRef = useRef(null);
 
   // Phase 7: Hevy API settings (Group E) + cache warning
@@ -22,6 +23,11 @@ function ScreenSettings({ onBack, setPage }) {
   );
   const [apiTestResult, setApiTestResult] = useState(null);  // null | {ok, reason}
   const [apiTesting, setApiTesting] = useState(false);
+
+  const showSaved = (msg = 'Saved') => {
+    setSavedMsg(msg);
+    setTimeout(() => setSavedMsg(''), 2000);
+  };
 
   // Close timezone dropdown on outside click
   useEffect(() => {
@@ -47,7 +53,7 @@ function ScreenSettings({ onBack, setPage }) {
 
   // Debounce filename pattern persistence
   useEffect(() => {
-    const t = setTimeout(() => localStorage.setItem('ss-filename-pattern', filenamePattern), 300);
+    const t = setTimeout(() => { localStorage.setItem('ss-filename-pattern', filenamePattern); showSaved('Filename pattern saved'); }, 300);
     return () => clearTimeout(t);
   }, [filenamePattern]);
 
@@ -142,7 +148,7 @@ function ScreenSettings({ onBack, setPage }) {
                   {filteredTz.map(tz => {
                     const selected = tz === savedTz;
                     return (
-                      <button key={tz} onClick={() => { setSavedTz(tz); localStorage.setItem('ss-timezone', tz); setTzOpen(false); setTzFilter(''); }}
+                      <button key={tz} onClick={() => { setSavedTz(tz); localStorage.setItem('ss-timezone', tz); setTzOpen(false); setTzFilter(''); showSaved('Timezone saved'); }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 8,
                           width: '100%', textAlign: 'left', padding: '9px 14px',
@@ -172,6 +178,7 @@ function ScreenSettings({ onBack, setPage }) {
                 if (detected && timezones.includes(detected)) {
                   setSavedTz(detected);
                   localStorage.setItem('ss-timezone', detected);
+                  showSaved('Browser timezone detected');
                 }
               }}
             >Use browser timezone</button>
@@ -211,7 +218,7 @@ function ScreenSettings({ onBack, setPage }) {
             type="text"
             value={outputFolder}
             onChange={e => setOutputFolder(e.target.value)}
-            onBlur={() => localStorage.setItem('ss-output-folder', outputFolder)}
+            onBlur={() => { localStorage.setItem('ss-output-folder', outputFolder); showSaved('Output folder saved'); }}
             placeholder="output/"
             style={inputStyle}
           />
@@ -232,7 +239,7 @@ function ScreenSettings({ onBack, setPage }) {
               aria-label="Cache warning threshold in days"
               value={cacheWarningDays}
               onChange={e => setCacheWarningDays(parseInt(e.target.value, 10) || 7)}
-              onBlur={() => localStorage.setItem('ss-cache-warning-days', String(cacheWarningDays))}
+              onBlur={() => { localStorage.setItem('ss-cache-warning-days', String(cacheWarningDays)); showSaved('Cache warning threshold saved'); }}
               style={{ ...inputStyle, width: 80 }}
             />
             <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>days</span>
@@ -325,6 +332,12 @@ function ScreenSettings({ onBack, setPage }) {
         </div>
 
       </div>
+
+      {savedMsg && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, fontSize: 12, color: 'var(--good)', fontFamily: 'var(--font-mono)' }}>
+          ✓ {savedMsg}
+        </div>
+      )}
 
       {/* DB reset confirmation modal */}
       {showResetModal && (

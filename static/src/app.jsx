@@ -116,10 +116,15 @@ function App() {
     try {
       const r = await fetch('/api/next-fit', { method: 'POST' });
       const body = await r.json();
-      if (!r.ok) { handleRestart(); return; }
+      if (!r.ok) {
+        window.alert(body.error || 'No more FIT files in this batch.');
+        handleRestart();
+        return;
+      }
       update({ fitIndex: body.fit_index, fitCount: body.fit_count, matchResult: null, exercises: null, previewResult: null });
       setStep(1);
     } catch {
+      window.alert('Network error advancing to next file. Returning to start.');
       handleRestart();
     }
   };
