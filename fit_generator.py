@@ -79,7 +79,7 @@ def _assign_timestamps(
             last = garmin_timestamps[-1] if garmin_timestamps else workout_end_fit - 3600
             overflow_count = n_hevy_sets - len(garmin_timestamps)
             idx = i - len(garmin_timestamps)
-            step = (workout_end_fit - last) // (overflow_count + 1)
+            step = max(1, (workout_end_fit - last) // (overflow_count + 1))
             result.append(last + step * (idx + 1))
     return result
 
@@ -234,7 +234,8 @@ def _patch_active_sets_inplace(
         if rh & 0x80:  # compressed timestamp record
             local_num = (rh >> 5) & 0x03
             if local_num not in local_info:
-                break
+                pos += 1
+                continue
             pos += 1 + local_info[local_num]['data_size']
             continue
 

@@ -15,6 +15,7 @@ function ScreenSettings({ onBack, setPage }) {
   const [mappingCount, setMappingCount] = useState(0);
   const [savedMsg, setSavedMsg] = useState('');
   const tzWrapRef = useRef(null);
+  const mountedRef = useRef(false);
 
   // Phase 7: Hevy API settings (Group E) + cache warning
   const [hevyApiKey, setHevyApiKey] = useState(() => localStorage.getItem('ss-hevy-api-key') || '');
@@ -51,8 +52,9 @@ function ScreenSettings({ onBack, setPage }) {
     fetch('/api/mappings').then(r => r.json()).then(d => setMappingCount(d.length)).catch(() => {});
   }, [resetSuccess]);
 
-  // Debounce filename pattern persistence
+  // Debounce filename pattern persistence — skip initial mount to avoid spurious toast
   useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
     const t = setTimeout(() => { localStorage.setItem('ss-filename-pattern', filenamePattern); showSaved('Filename pattern saved'); }, 300);
     return () => clearTimeout(t);
   }, [filenamePattern]);

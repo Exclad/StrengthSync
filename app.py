@@ -284,7 +284,10 @@ def api_hevy_workouts():
             try:
                 hevy_workouts = hevy_parser.parse_hevy_csv(str(CACHE_PATH), weight_unit=weight_unit)
                 session["hevy_csv_path"] = str(CACHE_PATH)
-                session["hevy_tz_mode"] = "csv"
+                tz_mode = "csv"
+                if CACHE_TZ_MODE_PATH.exists():
+                    tz_mode = CACHE_TZ_MODE_PATH.read_text(encoding="utf-8").strip()
+                session["hevy_tz_mode"] = tz_mode
                 return jsonify({
                     "hevy_workout_count": len(hevy_workouts),
                     "source": "cache",
@@ -774,7 +777,7 @@ def api_history():
 @app.route("/api/history/download")
 def api_history_download():
     name = request.args.get("name", "").strip()
-    if not name or "/" in name or "\\" in name or not name.endswith(".fit"):
+    if not name or pathlib.Path(name).name != name or not name.endswith(".fit"):
         return jsonify({"error": "Invalid filename."}), 400
     output_dir = pathlib.Path(__file__).parent / "output"
     target = output_dir / name

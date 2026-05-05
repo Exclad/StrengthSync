@@ -265,10 +265,10 @@ function ScreenMap({ onNext, onBack, state, update }) {
                   <div className="mono uc" style={{ fontSize: 11, color: "var(--ink-3)" }}>FROM HEVY · PRESERVED AS-IS</div>
                   <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>{selected.sets.length} sets logged</div>
                 </div>
-                {selected.sets.some(s => s.weight > 0) && (
+                {selected.sets.some(s => s.weight_kg > 0) && (
                   <div className="row" style={{ gap: 16 }}>
-                    <Stat label="Top set" value={`${Math.max(...selected.sets.map(s=>s.weight))} lb`}/>
-                    <Stat label="Volume" value={`${selected.sets.reduce((a,s)=>a+s.reps*s.weight,0).toLocaleString()} lb`}/>
+                    <Stat label="Top set" value={`${Math.max(...selected.sets.map(s=>s.weight_kg))} kg`}/>
+                    <Stat label="Volume" value={`${selected.sets.reduce((a,s)=>a+(s.reps||0)*(s.weight_kg||0),0).toLocaleString()} kg`}/>
                   </div>
                 )}
               </div>
@@ -276,10 +276,10 @@ function ScreenMap({ onNext, onBack, state, update }) {
                 {selected.sets.map((s, i) => (
                   <div key={i} className="row" style={{ padding: "10px 0", borderBottom: i === selected.sets.length - 1 ? "none" : "1px solid var(--line)" }}>
                     <div className="mono" style={{ width: 32, color: "var(--ink-3)", fontSize: 12 }}>#{i + 1}</div>
-                    <div style={{ width: 80, fontWeight: 600, fontSize: 15 }}>{s.weight} <span style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 400 }}>lb</span></div>
+                    <div style={{ width: 80, fontWeight: 600, fontSize: 15 }}>{s.weight_kg} <span style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 400 }}>kg</span></div>
                     <div style={{ width: 60, color: "var(--ink-2)", fontSize: 14 }}>× {s.reps}</div>
                     <div className="grow" style={{ height: 6, background: "var(--bg-2)", borderRadius: 3, overflow: "hidden" }}>
-                      <div style={{ width: `${Math.min(100, (s.weight / 220) * 100)}%`, height: "100%", background: i === selected.sets.length - 1 ? "var(--accent-2)" : "var(--ink)", borderRadius: 3 }}/>
+                      <div style={{ width: `${Math.min(100, ((s.weight_kg || 0) / 150) * 100)}%`, height: "100%", background: i === selected.sets.length - 1 ? "var(--accent-2)" : "var(--ink)", borderRadius: 3 }}/>
                     </div>
                     {s.rpe != null && (
                       <div style={{ marginLeft: 12 }}>

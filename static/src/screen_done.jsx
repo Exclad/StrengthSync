@@ -84,7 +84,8 @@ function ScreenDone({ onRestart, onNextFit, fitIndex, fitCount, state }) {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Defer revocation — browser initiates the download asynchronously
+    setTimeout(() => { URL.revokeObjectURL(url); objectUrlRef.current = null; }, 100);
   };
 
   return (
